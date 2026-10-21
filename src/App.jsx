@@ -858,14 +858,34 @@ function DashboardContent() {
   }
 
   // ==========================================================================
-  // Pilar 4: Trava de Segurança da IA (Human-in-the-Loop) no Chat
+  // Pilar 4 + Arquitetura de Contexto Estrito:
+  // Envia item_id e titulo_original da linha selecionada para o backend (/api/chat)
   // ==========================================================================
-  async function handleSendChatMessage(event, presetText = null) {
+  const [rowAiLoadingId, setRowAiLoadingId] = useState(null);
+
+  async function handleSendChatMessage(event, presetText = null, explicitContextItem = null) {
     if (event) event.preventDefault();
     const textToSend = presetText ?? chatInput;
     if (!textToSend.trim() || chatLoading) return;
 
     const userMsg = textToSend.trim();
+
+    // Identifica o anúncio alvo (da linha clicada na tabela, do modal aberto ou do MLB citado no texto)
+    const mlbInTextMatch = userMsg.match(/\b(MLB[-_]?\d+)\b/i);
+    const mlbInText = mlbInTextMatch
+      ? mlbInTextMatch[1].toUpperCase().replace(/[-_]/g, '')
+      : null;
+
+    const targetContextItem =
+      explicitContextItem ||
+      (mlbInText
+        ? items.find(
+            (it) => String(it.id).toUpperCase().replace(/[-_]/g, '') === mlbInText
+          )
+        : null) ||
+      selectedItem ||
+      null;
+
     setChatMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
     if (!presetText) setChatInput('');
     setChatLoading(true);
@@ -877,6 +897,13 @@ function DashboardContent() {
         body: JSON.stringify({
           message: userMsg,
           previous_interaction_id: previousInteractionId,
+          item_id: targetContextItem?.id || mlbInText || undefined,
+          titulo_original: targetContextItem?.title || undefined,
+          items_catalog: items.map((it) => ({
+            id: it.id,
+            title: it.title,
+            price: it.price,
+          })),
         }),
       });
 
@@ -897,6 +924,7 @@ function DashboardContent() {
           text: data.reply,
           tools: data.executed_tools || [],
           radar: data.competitors_radar || null,
+          contextInjection: data.context_injection || null,
         },
       ]);
 
@@ -906,10 +934,22 @@ function DashboardContent() {
       if (data.pending_approval) {
         const targetId = data.pending_approval.item_id;
         const matchedItem =
-          items.find((it) => it.id.toUpperCase() === String(targetId).toUpperCase()) ||
+          (targetContextItem &&
+          String(targetContextItem.id).toUpperCase().replace(/[-_]/g, '') ===
+            String(targetId).toUpperCase().replace(/[-_]/g, '')
+            ? targetContextItem
+            : null) ||
+          items.find(
+            (it) =>
+              String(it.id).toUpperCase().replace(/[-_]/g, '') ===
+              String(targetId).toUpperCase().replace(/[-_]/g, '')
+          ) ||
+          targetContextItem ||
           items[0] || {
             id: targetId || 'MLB3948102938',
-            title: 'Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers',
+            title:
+              data.pending_approval.titulo_original ||
+              'Kit 50 Talões De Pedido 105x150mm Comércio',
             price: 69.9,
             product_cost: 22.5,
             available_quantity: 85,
@@ -928,6 +968,24 @@ function DashboardContent() {
       showToast('error', err.message);
     } finally {
       setChatLoading(false);
+    }
+  }
+
+  // Envia o item_id e o titulo_original da linha específica da tabela para a IA otimizar sem alucinar o produto
+  async function handleAskAiForRow(item, event = null) {
+    if (event) {
+      event.stopPropagation();
+    }
+    if (!item || chatLoading) return;
+    setRowAiLoadingId(item.id);
+    try {
+      await handleSendChatMessage(
+        null,
+        `Pedir sugestão para a IA: otimize o título B2B e calcule o preço competitivo para o anúncio ${item.id} ("${item.title}")`,
+        item
+      );
+    } finally {
+      setRowAiLoadingId(null);
     }
   }
 
@@ -1182,16 +1240,17 @@ function DashboardContent() {
                     <th>Custo de Frete (Vendedor)</th>
                     <th>Lucro Líquido</th>
                     <th>Margem %</th>
-                    <th>Status de Estratégia</th>
+                     <th>Status de Estratégia</th>
                     <th>Estoque</th>
                     <th>Status</th>
+                    <th>Sugestão IA</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
                       <td
-                        colSpan={12}
+                        colSpan={13}
                         style={{
                           textAlign: 'center',
                           padding: '3rem',
@@ -1204,7 +1263,7 @@ function DashboardContent() {
                   ) : filteredItems.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={12}
+                        colSpan={13}
                         style={{
                           textAlign: 'center',
                           padding: '3rem',
@@ -1307,6 +1366,25 @@ function DashboardContent() {
                             >
                               ● {item.status === 'active' ? 'Ativo' : 'Pausado'}
                             </span>
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              className="btn-primary btn-sm"
+                              disabled={chatLoading}
+                              onClick={(e) => handleAskAiForRow(item, e)}
+                              title={`Pedir sugestão para a IA atrelada ao produto "${item.title}"`}
+                              style={{ whiteSpace: 'nowrap' }}
+                            >
+                              {chatLoading && rowAiLoadingId === item.id ? (
+                                <>
+                                  <span className="inline-spinner" />
+                                  <span>Analisando...</span>
+                                </>
+                              ) : (
+                                '✨ Pedir sugestão para a IA'
+                              )}
+                            </button>
                           </td>
                         </tr>
                       );
@@ -1657,16 +1735,74 @@ function DashboardContent() {
               <button
                 type="button"
                 className="btn-primary btn-sm"
-                onClick={() =>
-                  handleSendChatMessage(
-                    null,
-                    `Pesquisar concorrentes e otimizar título B2B do anúncio ${
-                      items[0]?.id || 'MLB3948102938'
-                    } para "Kit 50 Talões De Pedido 105x150mm Comércio"`
-                  )
-                }
+                onClick={() => {
+                  const target =
+                    items.find((it) => /placa/i.test(it.title)) ||
+                    items[0] || {
+                      id: 'MLB4091827364',
+                      title: 'Placa Sinalização Proibido Fumar 15x20cm Poliestireno UV',
+                      price: 19.9,
+                      product_cost: 6.5,
+                      available_quantity: 120,
+                    };
+                  handleAskAiForRow(target);
+                }}
               >
-                🔍 1. Kit 50 Talões 105x150mm (Abre Modal)
+                ✨ 1. Otimizar Placa Sinalização (Contexto Estrito)
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  const target =
+                    items.find((it) => /cartaz|splash/i.test(it.title)) ||
+                    items[0] || {
+                      id: 'MLB4091827365',
+                      title: 'Cartaz De Oferta Amarelo Vermelho 30x40cm Papel 220g',
+                      price: 24.9,
+                      product_cost: 8.0,
+                      available_quantity: 200,
+                    };
+                  handleAskAiForRow(target);
+                }}
+              >
+                🏷️ 2. Otimizar Cartaz de Oferta (Contexto Estrito)
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  const target =
+                    items.find((it) => /envelope|kraft/i.test(it.title)) ||
+                    items[0] || {
+                      id: 'MLB4019283741',
+                      title: 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g',
+                      price: 119.9,
+                      product_cost: 38.0,
+                      available_quantity: 32,
+                    };
+                  handleAskAiForRow(target);
+                }}
+              >
+                📦 3. Otimizar Envelopes Kraft 90g
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  const target =
+                    items.find((it) => /tal[aã]o|pedido/i.test(it.title)) ||
+                    items[0] || {
+                      id: 'MLB3948102938',
+                      title: 'Kit 50 Talões De Pedido 105x150mm Comércio',
+                      price: 69.9,
+                      product_cost: 22.5,
+                      available_quantity: 85,
+                    };
+                  handleAskAiForRow(target);
+                }}
+              >
+                🔍 4. Otimizar Talões de Pedido
               </button>
               <button
                 type="button"
@@ -1674,51 +1810,11 @@ function DashboardContent() {
                 onClick={() =>
                   handleSendChatMessage(
                     null,
-                    `Pesquisar concorrentes e otimizar anúncio ${
-                      items[0]?.id || 'MLB3948102938'
-                    } para "Caixa 250 Envelopes Kraft Natural 162x229mm 90g"`
+                    `Otimizar título do MLB3948102938 para "Talão de Pedido Barato Pacific Flowers"`
                   )
                 }
               >
-                📦 2. Caixa 250 Envelopes Kraft 90g
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() =>
-                  handleSendChatMessage(
-                    null,
-                    `Quero vender placas de proibido fumar e banheiro 15x20cm em kit atacado, otimize o anúncio`
-                  )
-                }
-              >
-                ⚠️ 3. Kit Placas Sinalização PS UV 15x20cm
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() =>
-                  handleSendChatMessage(
-                    null,
-                    `Otimizar título do ${
-                      items[0]?.id || 'MLB3948102938'
-                    } para "Talão de Pedido Barato Pacific Flowers"`
-                  )
-                }
-              >
-                🛡️ 4. Testar Bloqueio: &ldquo;Talão Barato&rdquo;
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() =>
-                  handleSendChatMessage(
-                    null,
-                    `Crie uma descrição técnica para a Caixa de 250 Envelopes Kraft 90g`
-                  )
-                }
-              >
-                ✍️ 5. Gerar Descrição Texto Puro
+                🛡️ 5. Testar Bloqueio: &ldquo;Talão Barato&rdquo;
               </button>
               <button
                 type="button"
@@ -2032,16 +2128,18 @@ function DashboardContent() {
                 <button
                   type="button"
                   className="copilot-quick-chip"
-                  onClick={() =>
-                    handleSendChatMessage(
-                      null,
-                      `Pesquisar concorrentes e otimizar título do ${
-                        items[0]?.id || 'MLB3948102938'
-                      } para "Kit 50 Talões De Pedido 105x150mm Comércio"`
-                    )
-                  }
+                  onClick={() => {
+                    const target = items[0] || {
+                      id: 'MLB3948102938',
+                      title: 'Kit 50 Talões De Pedido 105x150mm Comércio',
+                      price: 69.9,
+                      product_cost: 22.5,
+                      available_quantity: 85,
+                    };
+                    handleAskAiForRow(target);
+                  }}
                 >
-                  🔍 Radar Top 5 + Kit 50 Talões
+                  ✨ Pedir sugestão IA ({items[0]?.id || 'MLB3948102938'})
                 </button>
                 <button
                   type="button"
@@ -2144,21 +2242,54 @@ function DashboardContent() {
                   alt={editTitle || selectedItem.title}
                   className="item-thumb"
                 />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: '0.71rem',
+                      color: '#a78bfa',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.03em',
+                    }}
+                  >
+                    🔒 Produto Original Atrelado: &ldquo;{selectedItem.title}&rdquo;
+                  </div>
                   <div style={{ fontSize: '0.86rem', fontWeight: 500, lineHeight: 1.35 }}>
                     {editTitle || selectedItem.title}
                   </div>
-                  {selectedItem.permalink && (
-                    <a
-                      href={selectedItem.permalink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="accent-link"
-                      style={{ fontSize: '0.75rem' }}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.5rem',
+                      marginTop: '0.2rem',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    {selectedItem.permalink && (
+                      <a
+                        href={selectedItem.permalink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="accent-link"
+                        style={{ fontSize: '0.75rem' }}
+                      >
+                        Ver anúncio no Mercado Livre ↗
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      className="btn-primary btn-sm"
+                      disabled={chatLoading}
+                      onClick={(e) => handleAskAiForRow(selectedItem, e)}
+                      style={{ fontSize: '0.72rem', padding: '0.28rem 0.65rem' }}
                     >
-                      Ver anúncio no Mercado Livre ↗
-                    </a>
-                  )}
+                      {chatLoading && rowAiLoadingId === selectedItem.id
+                        ? '✦ Analisando...'
+                        : '✨ Pedir sugestão para a IA'}
+                    </button>
+                  </div>
                 </div>
               </div>
 

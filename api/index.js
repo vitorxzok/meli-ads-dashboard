@@ -220,7 +220,7 @@ export const COPILOT_TOOLS = [
     type: 'function',
     name: 'otimizar_titulo_b2b',
     description:
-      'Prepara a otimização do título (title) de um anúncio B2B no Mercado Livre para aprovação humana no Modal de Edição, respeitando estritamente o limite de 60 caracteres e a fórmula [Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso].',
+      'Prepara a otimização do título (title / titulo_sugerido) de um anúncio B2B no Mercado Livre para aprovação humana no Modal de Edição, mantendo estritamente a mesma natureza do produto original (titulo_original) e respeitando o limite de 60 caracteres e a fórmula [Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso].',
     parameters: {
       type: 'object',
       properties: {
@@ -233,8 +233,13 @@ export const COPILOT_TOOLS = [
           description:
             'Novo título auditado (máximo absoluto de 60 caracteres, fórmula [Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso]).',
         },
+        titulo_sugerido: {
+          type: 'string',
+          description:
+            'Alias opcional para o novo título sugerido B2B preso à natureza do produto original.',
+        },
       },
-      required: ['item_id', 'title'],
+      required: ['item_id'],
     },
   },
 ];
@@ -517,17 +522,201 @@ Estimula o raciocínio lógico, coordenação motora e socialização em escolas
   },
 ];
 
-export function resolveCatalogProfile(text = '', itemId = '') {
-  const clean = String(text || '');
+export function detectCatalogProfileFromText(text = '') {
+  const clean = String(text || '').trim();
+  if (!clean) return null;
   for (const profile of PACIFIC_FLOWERS_CATALOG_PROFILES) {
     if (profile.regex.test(clean)) {
       return profile;
     }
   }
+  return null;
+}
+
+export function resolveCatalogProfile(text = '', itemId = '', tituloOriginal = '') {
+  // PRIORIDADE 1 ABSOLUTA: Natureza do produto original (titulo_original)
+  if (tituloOriginal && String(tituloOriginal).trim()) {
+    const fromOriginal = detectCatalogProfileFromText(tituloOriginal);
+    if (fromOriginal) {
+      return fromOriginal;
+    }
+  }
+  // PRIORIDADE 2: Texto enviado pelo usuário
+  const fromText = detectCatalogProfileFromText(text);
+  if (fromText) {
+    return fromText;
+  }
+  // PRIORIDADE 3: Mapeamento por ID conhecido
   if (itemId === 'MLB4019283741') {
     return PACIFIC_FLOWERS_CATALOG_PROFILES.find((p) => p.id === 'envelopes_kraft');
   }
-  return PACIFIC_FLOWERS_CATALOG_PROFILES[0]; // Default: Talões de Pedido
+  if (itemId === 'MLB4091827364') {
+    return PACIFIC_FLOWERS_CATALOG_PROFILES.find((p) => p.id === 'placas_sinalizacao');
+  }
+  if (itemId === 'MLB4091827365') {
+    return PACIFIC_FLOWERS_CATALOG_PROFILES.find((p) => p.id === 'splashes_cartazes');
+  }
+  return PACIFIC_FLOWERS_CATALOG_PROFILES[0];
+}
+
+/**
+ * Injeção Dinâmica no Prompt (Exatamente no formato exigido pela Arquitetura de Contexto Estrito)
+ */
+export function buildDynamicContextInjection(itemId, tituloOriginal) {
+  const safeId = String(itemId || 'MLB3948102938').trim();
+  const safeOriginal = String(tituloOriginal || '').trim();
+  if (!safeOriginal) return '';
+  return `ATENÇÃO: O anúncio selecionado (ID: ${safeId}) é atualmente o produto: "${safeOriginal}". Você está terminantemente proibido de alterar a natureza do produto. Se o original é uma Placa, o novo título deve ser sobre Placas.`;
+}
+
+/**
+ * Sintetiza um título B2B (<= 60 chars) estritamente preso à natureza, subtipo e medidas do titulo_original
+ * Fórmula: [Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso]
+ */
+export function synthesizeLockedB2BTitleFromOriginal(tituloOriginal = '', fallbackText = '') {
+  const sourceTitle = String(tituloOriginal || fallbackText || '').trim();
+  const profile = resolveCatalogProfile(fallbackText, '', sourceTitle);
+  const dimMatch = sourceTitle.match(
+    /\b(\d{1,3}\s*x\s*\d{1,3}\s*(?:mm|cm)?|\d{2,3}\s*g)\b/i
+  );
+  const extractedDim = dimMatch ? dimMatch[1].replace(/\s+/g, '').toLowerCase() : null;
+
+  // 1) Se o produto original é uma PLACA DE SINALIZAÇÃO
+  if (profile.id === 'placas_sinalizacao' || /placa|sinaliza/i.test(sourceTitle)) {
+    const dim = extractedDim && /cm|mm/i.test(extractedDim) ? extractedDim : '15x20cm';
+    let subTheme = 'Sinalização';
+    if (/proibido\s+fumar/i.test(sourceTitle)) subTheme = 'Proibido Fumar';
+    else if (/sorria|filmado/i.test(sourceTitle)) subTheme = 'Sorria Filmado';
+    else if (/banheiro|sanit[aá]rio/i.test(sourceTitle)) subTheme = 'Banheiro';
+    else if (/emerg[eê]ncia/i.test(sourceTitle)) subTheme = 'Saída Emergência';
+    else if (/volto\s+j[aá]/i.test(sourceTitle)) subTheme = 'Volto Já';
+    else if (/capacete/i.test(sourceTitle)) subTheme = 'Proibido Capacete';
+    else if (/c[aã]o\s+bravo/i.test(sourceTitle)) subTheme = 'Cuidado Cão Bravo';
+    else if (/extintor/i.test(sourceTitle)) subTheme = 'Extintor';
+    else if (/alugo|vendo/i.test(sourceTitle)) subTheme = 'Alugo E Vendo';
+    else if (/entrada|sa[ií]da|caixa/i.test(sourceTitle)) subTheme = 'Entrada E Saída';
+
+    const candidate = `Kit 20 Placas ${subTheme} PS UV ${dim} Comércio`.replace(/\s+/g, ' ');
+    return candidate.length <= 60
+      ? candidate
+      : `Kit 20 Placas ${subTheme} PS UV ${dim}`.slice(0, 60).trim();
+  }
+
+  // 2) Se o produto original é CARTAZ DE OFERTA ou SPLASH DE OFERTA
+  if (profile.id === 'splashes_cartazes' || /cartaz|splash/i.test(sourceTitle)) {
+    if (/splash/i.test(sourceTitle)) {
+      const subtype = /solapa/i.test(sourceTitle)
+        ? 'Solapa'
+        : /granel/i.test(sourceTitle)
+        ? 'Granel'
+        : /combo/i.test(sourceTitle)
+        ? 'Combo'
+        : 'Papel';
+      const candidate = `Kit 150 Splashes De Oferta ${subtype} 220g Comércio`;
+      return candidate.slice(0, 60).trim();
+    }
+    const dim = extractedDim && /cm/i.test(extractedDim) ? extractedDim : '30x40cm';
+    const candidate = `Kit 100 Cartazes De Oferta ${dim} 220g Varejo`;
+    return candidate.slice(0, 60).trim();
+  }
+
+  // 3) Se o produto original é ENVELOPE KRAFT
+  if (profile.id === 'envelopes_kraft' || /envelope|kraft/i.test(sourceTitle)) {
+    const dim =
+      extractedDim && /mm|cm/i.test(extractedDim) ? extractedDim : '162x229mm';
+    const gram = /80\s*g/i.test(sourceTitle) ? '80g' : '90g';
+    return `Caixa 250 Envelopes Kraft Natural ${dim} ${gram}`.slice(0, 60).trim();
+  }
+
+  // 4) Se o produto original é COMANDA
+  if (profile.id === 'comandas' || /comanda/i.test(sourceTitle)) {
+    return 'Kit 100 Comandas 75x105mm 50 Folhas Restaurante';
+  }
+
+  // 5) Se o produto original é RECIBO ou VALE
+  if (profile.id === 'recibos_vales' || /recibo|vale\b|vales\b/i.test(sourceTitle)) {
+    if (/vale\b|vales\b/i.test(sourceTitle)) {
+      return 'Kit 100 Vales Impressos 105x75mm 50 Folhas Comércio';
+    }
+    return 'Kit 50 Recibos Comerciais 150x105mm 50 Folhas Loja';
+  }
+
+  // 6) Se o produto original é CADERNO ou CADERNETA
+  if (profile.id === 'cadernos_cadernetas' || /caderno|caderneta/i.test(sourceTitle)) {
+    const fls = /48\s*(?:folhas|fls)/i.test(sourceTitle) ? '48 Folhas' : '96 Folhas';
+    if (/caderneta/i.test(sourceTitle)) {
+      return `Caixa 40 Cadernetas Capa 250g ${fls} Papelaria`.slice(0, 60).trim();
+    }
+    return `Kit 20 Cadernos Capa Flexível 250g ${fls} Escolar`.slice(0, 60).trim();
+  }
+
+  // 7) Se o produto original é GIZ DE CERA
+  if (profile.id === 'giz_de_cera' || /\bgiz\b|giz[aã]o/i.test(sourceTitle)) {
+    if (/giz[aã]o/i.test(sourceTitle)) {
+      return 'Kit 15 Caixas Gizão De Cera 12 Cores 112g Escolar';
+    }
+    if (/meu\s+1/i.test(sourceTitle)) {
+      return 'Kit 10 Caixas Meu 1 Giz De Cera 185g Pré Escola';
+    }
+    return 'Kit 24 Caixas Giz De Cera 12 Cores 52g Escolar';
+  }
+
+  // 8) Se o produto original é DINHEIRINHO / DINHEIRÃO EDUCATIVO
+  if (profile.id === 'dinheirinho_educativo' || /dinheirinho|dinheir[aã]o/i.test(sourceTitle)) {
+    if (/dinheir[aã]o|15\s*notas/i.test(sourceTitle)) {
+      return 'Kit 40 Pacotes Dinheirão Educativo 15 Notas Escola';
+    }
+    return 'Kit 30 Pacotes Dinheirinho Educativo 70 Notas Escolar';
+  }
+
+  // 9) Se o produto original é JOGO / ATIVIDADE EDUCATIVA
+  if (
+    profile.id === 'jogos_educativos' ||
+    /jogo|imobili[aá]rio|damas|ludo|trilha|mem[oó]ria|quebra[-\s]?cabe[cç]a|caligrafia|desenho/i.test(
+      sourceTitle
+    )
+  ) {
+    if (/imobili[aá]rio/i.test(sourceTitle)) {
+      return 'Kit 12 Jogos Mercado Imobiliário Tabuleiro Escolar';
+    }
+    if (/mem[oó]ria/i.test(sourceTitle)) {
+      return 'Kit 20 Jogos Da Memória Educativo Infantil Escolar';
+    }
+    if (/quebra[-\s]?cabe[cç]a/i.test(sourceTitle)) {
+      return 'Kit 20 Quebra-Cabeças Educativos Infantil Escolar';
+    }
+    if (/caligrafia|desenho/i.test(sourceTitle)) {
+      return 'Kit 20 Kits De Desenho E Caligrafia Infantil Escola';
+    }
+    return 'Kit 15 Jogos Educativos Damas Ludo Trilha Escolar';
+  }
+
+  // 10) Se o produto original é TALÃO DE PEDIDO
+  if (/tal[aã]o|tal[oõ]es|pedido/i.test(sourceTitle)) {
+    const dim = /150x210/i.test(sourceTitle)
+      ? '150x210mm'
+      : /300x210/i.test(sourceTitle)
+      ? '300x210mm'
+      : '105x150mm';
+    return `Kit 50 Talões De Pedido ${dim} Comércio`.slice(0, 60).trim();
+  }
+
+  // 11) Caso o titulo_original seja qualquer outro item específico da conta do vendedor,
+  // preserva as palavras-chave reais do titulo_original sem NUNCA alucinar outro produto!
+  if (sourceTitle) {
+    const cleanedOriginal = sourceTitle
+      .replace(/\b(oferta|frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|barat[oa]s?|pacific\s+flowers)\b/gi, '')
+      .replace(/[!*#@$%&]+/g, '')
+      .replace(/^(kit\s+\d+|caixa\s+\d+|pacote\s+\d+|\d+\s*un\.?)\s+/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const withKit = `Kit 20 ${cleanedOriginal} ${extractedDim ? '' : '15x20cm '}Comércio`
+      .replace(/\s+/g, ' ')
+      .trim();
+    return withKit.slice(0, 60).trim();
+  }
+
+  return profile.primaryTitle;
 }
 
 export function detectOutOfCatalogProduct(text = '') {
@@ -537,12 +726,43 @@ export function detectOutOfCatalogProduct(text = '') {
   return match ? match[1] : null;
 }
 
+/**
+ * Verifica se o título proposto tenta mudar a natureza do produto original (Mismatch de Contexto)
+ */
+export function validateProductNatureLock(tituloOriginal = '', proposedTitle = '') {
+  const origClean = String(tituloOriginal || '').trim();
+  const propClean = String(proposedTitle || '').trim();
+  if (!origClean || !propClean) {
+    return { locked: true, violation: null };
+  }
+
+  const origProfile = detectCatalogProfileFromText(origClean);
+  const propProfile = detectCatalogProfileFromText(propClean);
+
+  if (origProfile && propProfile && origProfile.id !== propProfile.id) {
+    return {
+      locked: false,
+      original_profile: origProfile,
+      proposed_profile: propProfile,
+      violation: `Violação Crítica de Contexto (Mismatch de Produto): O anúncio selecionado é originalmente "${origClean}" (${origProfile.productName}), portanto é terminantemente proibido alterar a natureza do produto para "${propProfile.productName}".`,
+    };
+  }
+
+  return { locked: true, original_profile: origProfile, violation: null };
+}
+
 // ============================================================================
 // Validador de Conformidade das Políticas do Mercado Livre (Guardrail Backend)
 // ============================================================================
-export function validateTitleCompliance(title) {
+export function validateTitleCompliance(title, tituloOriginal = '') {
   const clean = String(title || '').trim();
   const violations = [];
+
+  // 1) Validação de Contexto Estrito (Impede que Placa vire Talão, Cartaz vire Envelope, etc.)
+  const natureCheck = validateProductNatureLock(tituloOriginal, clean);
+  if (!natureCheck.locked && natureCheck.violation) {
+    violations.push(natureCheck.violation);
+  }
 
   if (clean.length > 60) {
     violations.push(
@@ -594,13 +814,17 @@ export function validateTitleCompliance(title) {
     );
   }
 
-  const profile = resolveCatalogProfile(clean);
+  const profile = resolveCatalogProfile(clean, '', tituloOriginal);
+  const lockedSuggestedTitle = synthesizeLockedB2BTitleFromOriginal(
+    tituloOriginal,
+    clean
+  );
 
   return {
     valid: violations.length === 0,
     length: clean.length,
     violations,
-    suggested_title: profile.primaryTitle,
+    suggested_title: lockedSuggestedTitle,
     alternative_titles: profile.alternativeTitles,
     catalog_profile: profile,
   };
@@ -779,6 +1003,28 @@ let demoItems = [
     currency_id: 'BRL',
     thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_847192-MLA75123981234_032024-F.webp',
     permalink: 'https://produto.mercadolivre.com.br/MLB-4019283741',
+  },
+  {
+    id: 'MLB4091827364',
+    title: 'Placa Sinalização Proibido Fumar 15x20cm Poliestireno UV',
+    price: 19.9,
+    product_cost: 6.5,
+    available_quantity: 120,
+    status: 'active',
+    currency_id: 'BRL',
+    thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_601411-MLA74651415532_022024-F.webp',
+    permalink: 'https://produto.mercadolivre.com.br/MLB-4091827364',
+  },
+  {
+    id: 'MLB4091827365',
+    title: 'Cartaz De Oferta Amarelo Vermelho 30x40cm Papel 220g',
+    price: 24.9,
+    product_cost: 8.0,
+    available_quantity: 200,
+    status: 'active',
+    currency_id: 'BRL',
+    thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_847192-MLA75123981234_032024-F.webp',
+    permalink: 'https://produto.mercadolivre.com.br/MLB-4091827365',
   },
 ];
 
@@ -1439,12 +1685,127 @@ app.get('/api/concorrencia', async (req, res) => {
 });
 
 // ============================================================================
+// Arquitetura de Contexto Estrito: Interceptação de Dados (Backend)
+// Lê o titulo_original atual do item_id (via payload frontend, cache ou GET rápido na API do ML)
+// ============================================================================
+export async function resolveItemOriginalContext({
+  itemIdFromBody = '',
+  tituloOriginalFromBody = '',
+  itemsCatalogFromBody = [],
+  messageText = '',
+  req = null,
+}) {
+  if (req) {
+    hydrateSessionFromCookie(req);
+  }
+
+  const mlbMatch = String(messageText || '').match(/\b(MLB[-_]?\d+)\b/i);
+  const rawExplicitId = String(itemIdFromBody || (mlbMatch ? mlbMatch[1] : '') || '').trim();
+  let normalizedId = rawExplicitId ? rawExplicitId.toUpperCase().replace(/[-_]/g, '') : '';
+  let resolvedOriginalTitle = String(tituloOriginalFromBody || '').trim();
+  let resolutionSource = resolvedOriginalTitle ? 'frontend_payload' : 'none';
+
+  const catalogPool = [
+    ...(Array.isArray(itemsCatalogFromBody) ? itemsCatalogFromBody : []),
+    ...(Array.isArray(itemsCache.data) ? itemsCache.data : []),
+    ...demoItems,
+  ];
+
+  // 1) Se não veio item_id explícito mas veio titulo_original, localiza o ID correspondente
+  if (!normalizedId && resolvedOriginalTitle) {
+    const matchedByTitle = catalogPool.find(
+      (it) =>
+        String(it?.title || '').trim().toLowerCase() === resolvedOriginalTitle.toLowerCase()
+    );
+    if (matchedByTitle?.id) {
+      normalizedId = String(matchedByTitle.id).toUpperCase().replace(/[-_]/g, '');
+    }
+  }
+
+  // 2) Se não há item_id explícito na requisição nem no texto, associa ao item do catálogo correspondente ao produto citado
+  if (!normalizedId) {
+    const textProfile = detectCatalogProfileFromText(messageText);
+    if (textProfile) {
+      const matchedByProfile = catalogPool.find((it) => {
+        const itProf = detectCatalogProfileFromText(it?.title || '');
+        return itProf && itProf.id === textProfile.id;
+      });
+      if (matchedByProfile?.id) {
+        normalizedId = String(matchedByProfile.id).toUpperCase().replace(/[-_]/g, '');
+        if (!resolvedOriginalTitle && matchedByProfile.title) {
+          resolvedOriginalTitle = String(matchedByProfile.title).trim();
+          resolutionSource = 'local_catalog_state';
+        }
+      } else if (!resolvedOriginalTitle) {
+        resolvedOriginalTitle = textProfile.primaryTitle;
+        resolutionSource = 'catalog_profile_inference';
+      }
+    }
+    if (!normalizedId) {
+      normalizedId = 'MLB3948102938';
+    }
+  }
+
+  // 3) Se temos o item_id explícito mas ainda não temos o titulo_original, busca no estado do frontend, cache ou demoItems
+  if (!resolvedOriginalTitle && normalizedId) {
+    const foundLocal = catalogPool.find(
+      (it) => String(it?.id || '').toUpperCase().replace(/[-_]/g, '') === normalizedId
+    );
+    if (foundLocal?.title) {
+      resolvedOriginalTitle = String(foundLocal.title).trim();
+      resolutionSource = 'local_catalog_state';
+    }
+  }
+
+  // 4) Interceptação via GET rápido na API do Mercado Livre caso não esteja no estado local
+  if (!resolvedOriginalTitle && normalizedId) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const headers = { Accept: 'application/json' };
+      if (authSession.access_token) {
+        headers.Authorization = `Bearer ${authSession.access_token}`;
+      }
+      const mlResp = await fetch(`${ML_API_BASE}/items/${encodeURIComponent(normalizedId)}`, {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (mlResp.ok) {
+        const mlItem = await mlResp.json();
+        if (mlItem?.title) {
+          resolvedOriginalTitle = String(mlItem.title).trim();
+          resolutionSource = 'mercadolibre_api_get';
+        }
+      }
+    } catch {
+      // Fallback seguro caso API externa não responda a tempo
+    }
+  }
+
+  const hasExplicitItemContext = Boolean(rawExplicitId || tituloOriginalFromBody);
+  const invisibleContextPrompt = resolvedOriginalTitle
+    ? buildDynamicContextInjection(normalizedId, resolvedOriginalTitle)
+    : null;
+
+  return {
+    itemId: normalizedId,
+    tituloOriginal: resolvedOriginalTitle,
+    source: resolutionSource,
+    hasExplicitItemContext,
+    invisibleContextPrompt,
+  };
+}
+
+// ============================================================================
 // Pilar 4: Trava Absoluta Human-in-the-Loop nas Tools da IA (Sem HTTP PUT direto)
+// + Interceptação de Contexto Estrito antes de otimizar_titulo_b2b
 // ============================================================================
 export const HUMAN_IN_THE_LOOP_MESSAGE =
   'Preparei a atualização do anúncio. Verifique os dados na tela e clique em Salvar para enviar ao Mercado Livre.';
 
-function createMeliToolExecutors() {
+function createMeliToolExecutors(contextState = {}) {
   return {
     // Tool 1: Radar de Concorrência (Executa busca real nos 5 primeiros colocados do ML e devolve ao contexto do LLM)
     pesquisar_concorrentes: async ({ palavra_chave }) => {
@@ -1464,9 +1825,9 @@ function createMeliToolExecutors() {
       if (Number.isNaN(numericPrice) || numericPrice <= 0) {
         return { error: 'Preço inválido.' };
       }
-      const normalizedId = String(item_id || 'MLB3948102938')
+      const normalizedId = String(item_id || contextState.itemId || 'MLB3948102938')
         .toUpperCase()
-        .replace('-', '');
+        .replace(/[-_]/g, '');
       const metrics = calculatePricingMetrics(numericPrice, productCostsMap[normalizedId] || 0);
       return {
         success: true,
@@ -1474,6 +1835,7 @@ function createMeliToolExecutors() {
         direct_api_call_blocked: true,
         status: 'pending_human_approval',
         item_id: normalizedId,
+        titulo_original: contextState.tituloOriginal || null,
         proposed_fields: {
           price: Number(numericPrice.toFixed(2)),
         },
@@ -1491,15 +1853,16 @@ function createMeliToolExecutors() {
       if (Number.isNaN(qty) || qty < 0) {
         return { error: 'Quantidade de estoque inválida.' };
       }
-      const normalizedId = String(item_id || 'MLB3948102938')
+      const normalizedId = String(item_id || contextState.itemId || 'MLB3948102938')
         .toUpperCase()
-        .replace('-', '');
+        .replace(/[-_]/g, '');
       return {
         success: true,
         human_in_the_loop: true,
         direct_api_call_blocked: true,
         status: 'pending_human_approval',
         item_id: normalizedId,
+        titulo_original: contextState.tituloOriginal || null,
         proposed_fields: {
           available_quantity: qty,
         },
@@ -1507,29 +1870,58 @@ function createMeliToolExecutors() {
       };
     },
 
-    otimizar_titulo_b2b: async ({ item_id, title }) => {
-      const audit = validateTitleCompliance(title);
+    otimizar_titulo_b2b: async ({ item_id, title, titulo_sugerido }) => {
+      const normalizedId = String(item_id || contextState.itemId || 'MLB3948102938')
+        .toUpperCase()
+        .replace(/[-_]/g, '');
+
+      // Interceptação de Dados (Backend): Lê obrigatoriamente o titulo_original atual daquele item_id
+      let resolvedOriginalTitle = contextState.tituloOriginal || '';
+      if (!resolvedOriginalTitle || (contextState.itemId && normalizedId !== contextState.itemId)) {
+        const resolved = await resolveItemOriginalContext({
+          itemIdFromBody: normalizedId,
+          tituloOriginalFromBody: contextState.tituloOriginal || '',
+          itemsCatalogFromBody: contextState.itemsCatalog || [],
+          req: contextState.req || null,
+        });
+        resolvedOriginalTitle = resolved.tituloOriginal || '';
+      }
+
+      let candidateTitle = String(title || titulo_sugerido || '').trim();
+      const natureCheck = validateProductNatureLock(resolvedOriginalTitle, candidateTitle);
+
+      // Se a IA tentar alucinar outro produto (ex: sugerir Talão para uma Placa ou Cartaz), trava no produto original!
+      let autoLockedFromMismatch = false;
+      if (!natureCheck.locked && resolvedOriginalTitle) {
+        candidateTitle = synthesizeLockedB2BTitleFromOriginal(resolvedOriginalTitle, candidateTitle);
+        autoLockedFromMismatch = true;
+      }
+
+      const audit = validateTitleCompliance(candidateTitle, resolvedOriginalTitle);
       if (!audit.valid) {
         return {
           success: false,
           compliance_rejected: true,
+          item_id: normalizedId,
+          titulo_original: resolvedOriginalTitle || null,
           violations: audit.violations,
           suggested_title: audit.suggested_title,
           message:
-            'Ação bloqueada pelo Auditor de Conformidade do Mercado Livre. Explique a regra violada ao usuário e sugira o título corrigido.',
+            'Ação bloqueada pelo Auditor de Conformidade do Mercado Livre. Explique a regra violada ao usuário e sugira o título corrigido mantendo a natureza do produto original.',
         };
       }
-      const normalizedId = String(item_id || 'MLB3948102938')
-        .toUpperCase()
-        .replace('-', '');
+
       return {
         success: true,
         human_in_the_loop: true,
         direct_api_call_blocked: true,
         status: 'pending_human_approval',
         item_id: normalizedId,
+        titulo_original: resolvedOriginalTitle || null,
+        context_locked: true,
+        auto_locked_from_mismatch: autoLockedFromMismatch,
         proposed_fields: {
-          title: String(title).trim(),
+          title: candidateTitle,
         },
         audit,
         message: HUMAN_IN_THE_LOOP_MESSAGE,
@@ -1584,12 +1976,13 @@ function formatMarginComparisonGemini(priceValue, unitCost = 32.0) {
 }
 
 // ============================================================================
-// 5. Rota POST /api/chat — Copiloto B2B + Radar de Concorrência + Human-in-the-Loop
+// 5. Rota POST /api/chat — Copiloto B2B + Contexto Estrito + Radar + Human-in-the-Loop
 // ============================================================================
 app.get('/api/chat/config', (req, res) => {
   res.json({
     model: 'gemini-3.8-flash',
     style: 'google-gemini-structured-b2b',
+    strict_context_lock: true,
     system_prompt: COPILOT_SYSTEM_PROMPT,
     catalog_lines_count: PACIFIC_FLOWERS_CATALOG_PROFILES.length,
     tools: COPILOT_TOOLS.map((t) => t.name),
@@ -1601,7 +1994,16 @@ app.get('/api/chat/config', (req, res) => {
 });
 
 app.post('/api/chat', async (req, res) => {
-  const { message, previous_interaction_id, gemini_api_key } = req.body || {};
+  const {
+    message,
+    previous_interaction_id,
+    gemini_api_key,
+    item_id: itemIdFromBody,
+    titulo_original: tituloOriginalFromBody,
+    original_title: originalTitleAlias,
+    items_catalog: itemsCatalogFromBody,
+    history: rawHistoryFromBody,
+  } = req.body || {};
 
   if (!message || !String(message).trim()) {
     return res.status(400).json({
@@ -1610,7 +2012,48 @@ app.post('/api/chat', async (req, res) => {
     });
   }
 
-  const toolExecutors = createMeliToolExecutors();
+  const text = String(message).trim();
+
+  // 1) INTERCEPTAÇÃO DE DADOS (Backend):
+  // Antes da IA gerar qualquer sugestão, lê o titulo_original atual do item_id
+  // (do estado do frontend, do cache de itens ou via GET rápido na API do Mercado Livre)
+  const itemContext = await resolveItemOriginalContext({
+    itemIdFromBody,
+    tituloOriginalFromBody: tituloOriginalFromBody || originalTitleAlias || '',
+    itemsCatalogFromBody,
+    messageText: text,
+    req,
+  });
+
+  const itemId = itemContext.itemId;
+  const catalogProfile = resolveCatalogProfile(text, itemId, itemContext.tituloOriginal);
+  const effectiveOriginalTitle = itemContext.tituloOriginal || catalogProfile.primaryTitle;
+
+  // 2) INJEÇÃO DINÂMICA NO PROMPT (Mensagem Invisível no Histórico da Conversa):
+  // Formato exato exigido:
+  // 'ATENÇÃO: O anúncio selecionado (ID: {item_id}) é atualmente o produto: "{titulo_original}". Você está terminantemente proibido de alterar a natureza do produto. Se o original é uma Placa, o novo título deve ser sobre Placas.'
+  const invisibleContextInjection = buildDynamicContextInjection(itemId, effectiveOriginalTitle);
+  const conversationHistory = [
+    {
+      role: 'system_context',
+      invisible: true,
+      content: invisibleContextInjection,
+    },
+    ...(Array.isArray(rawHistoryFromBody) ? rawHistoryFromBody : []),
+    {
+      role: 'user',
+      invisible: false,
+      content: text,
+    },
+  ];
+
+  const toolExecutors = createMeliToolExecutors({
+    itemId,
+    tituloOriginal: effectiveOriginalTitle,
+    itemsCatalog: itemsCatalogFromBody,
+    req,
+  });
+
   const resolvedApiKey = (
     gemini_api_key ||
     process.env.GEMINI_API_KEY ||
@@ -1624,7 +2067,8 @@ app.post('/api/chat', async (req, res) => {
   if (resolvedApiKey) {
     try {
       const ai = new GoogleGenAI({ apiKey: resolvedApiKey });
-      let currentInput = String(message);
+      // Injeta a mensagem invisível de contexto estrito antes da mensagem do usuário no histórico
+      let currentInput = `${invisibleContextInjection}\n\nMensagem do Usuário: ${text}`;
       let currentPreviousId = previous_interaction_id || undefined;
       let interaction;
       const executedTools = [];
@@ -1632,6 +2076,8 @@ app.post('/api/chat', async (req, res) => {
       let competitorsRadar = null;
 
       const geminiFormattingInstruction = `${COPILOT_SYSTEM_PROMPT}
+
+${invisibleContextInjection}
 
 ESTILO DE RESPOSTA OBRIGATÓRIO (PADRÃO GOOGLE GEMINI):
 - Estruture suas respostas usando Markdown rico, claro e escaneável com subtítulos (###), listas em tópicos (- **Item:** ...), blocos de destaque (> 💡 ...) e código inline (\`...\`) para contagens de caracteres, medidas e preços.
@@ -1672,6 +2118,7 @@ ESTILO DE RESPOSTA OBRIGATÓRIO (PADRÃO GOOGLE GEMINI):
             if (result && result.human_in_the_loop && result.proposed_fields) {
               pendingApproval = {
                 item_id: result.item_id,
+                titulo_original: effectiveOriginalTitle,
                 tool_name: step.name,
                 ...(pendingApproval?.proposed_fields || {}),
                 ...result.proposed_fields,
@@ -1713,6 +2160,13 @@ ESTILO DE RESPOSTA OBRIGATÓRIO (PADRÃO GOOGLE GEMINI):
         executed_tools: executedTools,
         competitors_radar: competitorsRadar,
         pending_approval: pendingApproval,
+        context_injection: {
+          item_id: itemId,
+          titulo_original: effectiveOriginalTitle,
+          source: itemContext.source,
+          invisible_message: invisibleContextInjection,
+          history_length: conversationHistory.length,
+        },
         system_prompt_active: true,
       });
     } catch {
@@ -1721,15 +2175,15 @@ ESTILO DE RESPOSTA OBRIGATÓRIO (PADRÃO GOOGLE GEMINI):
   }
 
   // ==========================================================================
-  // Fluxo 2: Motor Cognitivo Estilo Gemini 3.8 Flash (Multi-Intenção + Catálogo B2B)
-  // Responde de forma fluida, analítica e estruturada para qualquer tipo de texto!
+  // Fluxo 2: Motor Cognitivo Estilo Gemini 3.8 Flash (Multi-Intenção + Contexto Estrito)
+  // Responde de forma fluida, analítica e estruturada mantendo trava absoluta no titulo_original!
   // ==========================================================================
-  const text = String(message).trim();
-  const mlbMatch = text.match(/\b(MLB[-_]?\d+)\b/i);
-  const itemId = mlbMatch ? mlbMatch[1].toUpperCase().replace('-', '') : 'MLB3948102938';
   const executedTools = [];
   const combinedProposedFields = {};
-  const catalogProfile = resolveCatalogProfile(text, itemId);
+  const lockedB2BTitleForOriginal = synthesizeLockedB2BTitleFromOriginal(
+    effectiveOriginalTitle,
+    text
+  );
 
   // --------------------------------------------------------------------------
   // CASO A: Violação de Descrição (HTML ou Dados de Contato Proibidos)
@@ -2077,7 +2531,7 @@ ${formatRadarSectionGemini(competitorsRadar)}
 
   // --------------------------------------------------------------------------
   // CASO I: Fluxo Principal de Inteligência Competitiva + Otimização B2B + Modal Human-in-the-Loop
-  // (Aciona obrigatoriamente pesquisar_concorrentes, audita conformidade e abre o Modal)
+  // (Aciona obrigatoriamente pesquisar_concorrentes, audita conformidade e abre o Modal preso ao titulo_original)
   // --------------------------------------------------------------------------
   const titleQuoteMatch = text.match(/["'“”]([^"'“”]{3,120})["'“”]/);
   // Também detecta quando o usuário pede "para Talão de Pedido Barato..." sem aspas
@@ -2086,13 +2540,25 @@ ${formatRadarSectionGemini(competitorsRadar)}
         /(?:t[ií]tulo\s+para|renomear\s+para|mudar\s+para|alterar\s+para)\s+([A-Za-zÀ-ÿ0-9\s!@#$%&*xX/+-]{5,90})$/i
       )
     : null;
-  const explicitCandidateTitle = titleQuoteMatch
+  const rawExplicitTitle = titleQuoteMatch
     ? titleQuoteMatch[1].trim()
     : unquotedTargetMatch
     ? unquotedTargetMatch[1].trim()
     : null;
 
-  const extractedKeyword = explicitCandidateTitle
+  // Se o texto entre aspas for apenas o próprio titulo_original enviado pelo botão da tabela,
+  // não o tratamos como tentativa de título final inválido, e sim como referência para sintetizar o título B2B!
+  const isQuotedOriginalReference =
+    rawExplicitTitle &&
+    itemContext.tituloOriginal &&
+    rawExplicitTitle.toLowerCase() === itemContext.tituloOriginal.trim().toLowerCase();
+
+  const explicitCandidateTitle = isQuotedOriginalReference ? null : rawExplicitTitle;
+
+  // Define a palavra-chave do Radar de Concorrência estritamente alinhada ao produto real do anúncio
+  const extractedKeyword = itemContext.tituloOriginal
+    ? lockedB2BTitleForOriginal
+    : explicitCandidateTitle
     ? explicitCandidateTitle
         .replace(/\b(frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|barato)\b/gi, '')
         .replace(/[!*#@$%&]+/g, '')
@@ -2121,25 +2587,50 @@ ${formatRadarSectionGemini(competitorsRadar)}
   // Verifica se o usuário pediu atualização de título, sugestão de kit ou se enviou um título candidato
   const isTitleOrKitOptimization =
     Boolean(explicitCandidateTitle) ||
-    /t[ií]tulo|otimiz|renome|concorr[eê]n|radar|pesquis|suger|melhor|cri[ae]|kit|caixa|an[uú]ncio|tal[aã]o|comanda|recibo|vale|placa|envelope|kraft|splash|cartaz|caderno|giz|dinheirinho|jogo/i.test(
+    Boolean(itemContext.hasExplicitItemContext) ||
+    /t[ií]tulo|otimiz|renome|concorr[eê]n|radar|pesquis|suger|sugest[aã]o|melhor|cri[ae]|kit|caixa|an[uú]ncio|tal[aã]o|comanda|recibo|vale|placa|envelope|kraft|splash|cartaz|caderno|giz|dinheirinho|jogo/i.test(
       text
     );
 
-  if (isTitleOrKitOptimization && !(/^(atualiz|mud|alter).*(pre[cç]o|estoque)/i.test(text) && !explicitCandidateTitle)) {
-    const rawCandidate = explicitCandidateTitle || catalogProfile.primaryTitle;
-    const audit = validateTitleCompliance(rawCandidate);
+  let contextMismatchInterceptedNote = '';
+
+  if (
+    isTitleOrKitOptimization &&
+    !(/^(atualiz|mud|alter).*(pre[cç]o|estoque)/i.test(text) && !explicitCandidateTitle)
+  ) {
+    let rawCandidate = explicitCandidateTitle || lockedB2BTitleForOriginal;
+
+    // Se houver um titulo_original atrelado ao item_id e o candidato tentar mudar a natureza do produto
+    // (ex: tentar colocar "Talões de Pedido" em um anúncio que originalmente é "Placa" ou "Cartaz"):
+    const natureLockCheck = validateProductNatureLock(effectiveOriginalTitle, rawCandidate);
+    const hasExplicitPolicyViolation =
+      rawCandidate.length > 60 ||
+      /\b(frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|desconto|imperd[ií]vel|barat[oa]s?)\b/i.test(
+        rawCandidate
+      ) ||
+      /[!*]{2,}|[@#$%&]/.test(rawCandidate);
+
+    if (!natureLockCheck.locked && itemContext.tituloOriginal && !hasExplicitPolicyViolation) {
+      contextMismatchInterceptedNote = `\n> 🛡️ **Trava de Contexto Estrito Acionada:** O anúncio \`${itemId}\` é originalmente **\`"${effectiveOriginalTitle}"\`**. Para impedir desvio de catálogo (*Mismatch de Contexto*), bloqueei a troca de categoria e mantive a sugestão estritamente presa à linha de **${catalogProfile.productName}**.\n`;
+      rawCandidate = lockedB2BTitleForOriginal;
+    }
+
+    const audit = validateTitleCompliance(rawCandidate, effectiveOriginalTitle);
 
     // Se o título enviado pelo usuário violar as regras do Mercado Livre, recusa em estilo Gemini completo!
     if (!audit.valid) {
       const violationsList = audit.violations.map((v) => `- ❌ ${v}`).join('\n');
-      const altOptions = [audit.suggested_title, ...(audit.alternative_titles || [])]
+      const altOptions = [
+        lockedB2BTitleForOriginal,
+        ...(audit.alternative_titles || []).filter((t) => t !== lockedB2BTitleForOriginal),
+      ]
         .slice(0, 3)
         .map((t, i) => `${i + 1}. \`${t}\` *(${t.length}/60 caracteres — Aprovado)*`)
         .join('\n');
 
       return res.json({
         model: 'gemini-3.8-flash',
-        reply: `Analisei sua solicitação para o título **\`"${rawCandidate}"\`** (\`${rawCandidate.length}/60 caracteres\`) e **recuso gentilmente esta alteração**, pois ela viola as diretrizes de conformidade e SEO do Mercado Livre.
+        reply: `Analisei sua solicitação para o título **\`"${rawCandidate}"\`** (\`${rawCandidate.length}/60 caracteres\`) no anúncio \`${itemId}\` (**\`"${effectiveOriginalTitle}"\`**) e **recuso gentilmente esta alteração**, pois ela viola as diretrizes de conformidade e SEO do Mercado Livre.
 
 ### 🛡️ Diagnóstico do Auditor de Conformidade
 ${violationsList}
@@ -2153,28 +2644,36 @@ ${radarSectionMarkdown}
 
 ---
 
-### ✅ 3 Opções de Títulos Corrigidos (Superiores à Concorrência)
+### ✅ 3 Opções de Títulos Corrigidos (Presos ao Produto Original: ${catalogProfile.productName})
 ${altOptions}
 
-> 💡 **Como aplicar:** Clique em um dos botões rápidos acima ou peça *"Otimizar anúncio para ${audit.suggested_title}"* para que eu preencha o **Modal de Edição** automaticamente!`,
+> 💡 **Como aplicar:** Clique em **✨ Pedir sugestão para a IA** na linha do anúncio ou peça *"Otimizar anúncio para ${lockedB2BTitleForOriginal}"* para que eu preencha o **Modal de Edição** automaticamente!`,
         executed_tools: executedTools,
         competitors_radar: competitorsRadar,
         pending_approval: null,
+        context_injection: {
+          item_id: itemId,
+          titulo_original: effectiveOriginalTitle,
+          source: itemContext.source,
+          invisible_message: invisibleContextInjection,
+          history_length: conversationHistory.length,
+        },
         system_prompt_active: true,
       });
     }
 
-    // Título válido! Executa otimizar_titulo_b2b (Human-in-the-Loop)
+    // Título válido e preso ao produto original! Executa otimizar_titulo_b2b (Human-in-the-Loop)
     const toolResult = await toolExecutors.otimizar_titulo_b2b({
       item_id: itemId,
       title: rawCandidate,
+      titulo_sugerido: rawCandidate,
     });
     executedTools.push({
       name: 'otimizar_titulo_b2b',
-      arguments: { item_id: itemId, title: rawCandidate },
+      arguments: { item_id: itemId, title: rawCandidate, titulo_sugerido: rawCandidate },
       result: toolResult,
     });
-    combinedProposedFields.title = rawCandidate;
+    combinedProposedFields.title = toolResult?.proposed_fields?.title || rawCandidate;
 
     const isThreshold79ReferenceOnly =
       /(?:passar|acima|maior|ultrapassar|barreira|gatilho)\s+(?:de\s+|dos\s+|que\s+)?R\$\s*79(?:[.,]00)?/i.test(
@@ -2238,7 +2737,7 @@ ${altOptions}
 
   // Se preparamos campos para o Modal de Edição (Human-in-the-Loop), retorna análise Gemini completa + abre o Modal!
   if (Object.keys(combinedProposedFields).length > 0) {
-    const finalTitle = combinedProposedFields.title || catalogProfile.primaryTitle;
+    const finalTitle = combinedProposedFields.title || lockedB2BTitleForOriginal;
     const finalPrice =
       combinedProposedFields.price ||
       competitorsRadar?.stats?.suggested_competitive_price ||
@@ -2259,15 +2758,16 @@ ${radarSectionMarkdown}
 
 ---
 
-### 🏷️ Engenharia de Título & Conformidade B2B
-- **Título Proposto:** \`${finalTitle}\`
+### 🏷️ Engenharia de Título & Contexto Estrito B2B
+- **Produto Original Atrelado (\`${itemId}\`):** \`"${effectiveOriginalTitle}"\` *(Natureza preservada)*
+- **Novo Título B2B Proposto:** \`${finalTitle}\`
 - **Extensão Exata:** \`${finalTitle.length}/60 caracteres\` *(100% dentro do limite do algoritmo)*
 - **Fórmula Aplicada:** \`[Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso]\`
 ${
   combinedProposedFields.available_quantity !== undefined
     ? `- **Estoque Disponível Proposto:** \`${combinedProposedFields.available_quantity} unidades\`\n`
     : ''
-}${below79Alert}
+}${contextMismatchInterceptedNote}${below79Alert}
 ---
 
 ${formatMarginComparisonGemini(finalPrice, catalogProfile.estimatedCost)}
@@ -2283,9 +2783,17 @@ ${formatMarginComparisonGemini(finalPrice, catalogProfile.estimatedCost)}
       competitors_radar: competitorsRadar,
       pending_approval: {
         item_id: itemId,
+        titulo_original: effectiveOriginalTitle,
         tool_name: executedTools.map((t) => t.name).join(' -> '),
         ...combinedProposedFields,
         proposed_fields: combinedProposedFields,
+      },
+      context_injection: {
+        item_id: itemId,
+        titulo_original: effectiveOriginalTitle,
+        source: itemContext.source,
+        invisible_message: invisibleContextInjection,
+        history_length: conversationHistory.length,
       },
       system_prompt_active: true,
     });
@@ -2301,15 +2809,22 @@ ${radarSectionMarkdown}
 ---
 
 ### 🎯 Recomendação Estratégica Gemini B2B
-Para escalar nossas vendas de **${catalogProfile.productName}** (${catalogProfile.category}) com máxima lucratividade:
-- **Título Ideal (\`${catalogProfile.primaryTitle.length}/60 chars\`):** \`${catalogProfile.primaryTitle}\`
+Para escalar nossas vendas de **${catalogProfile.productName}** (${catalogProfile.category}) mantendo a natureza do anúncio \`${itemId}\` (**\`"${effectiveOriginalTitle}"\`**):
+- **Título Ideal (\`${lockedB2BTitleForOriginal.length}/60 chars\`):** \`${lockedB2BTitleForOriginal}\`
 - **Ticket Alvo Recomendado:** **R$ ${catalogProfile.recommendedPrice.toFixed(2)}** *(acima do gatilho de R$ 79,00 — elimina a taxa fixa de R$ 6,00 e ativa Frete Grátis)*
 - **Medidas Oficiais da Linha:** ${catalogProfile.specs}
 
-> 💡 **Quer que eu preencha o Modal de Edição com essa configuração agora?** Basta clicar no botão rápido de sugestão acima ou digitar: *"Otimize o anúncio para ${catalogProfile.primaryTitle}"*.`,
+> 💡 **Quer que eu preencha o Modal de Edição com essa configuração agora?** Basta clicar em **✨ Pedir sugestão para a IA** na linha do anúncio ou digitar: *"Otimize o anúncio para ${lockedB2BTitleForOriginal}"*.`,
     executed_tools: executedTools,
     competitors_radar: competitorsRadar,
     pending_approval: null,
+    context_injection: {
+      item_id: itemId,
+      titulo_original: effectiveOriginalTitle,
+      source: itemContext.source,
+      invisible_message: invisibleContextInjection,
+      history_length: conversationHistory.length,
+    },
     system_prompt_active: true,
   });
 });
