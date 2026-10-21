@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "buildCommand": "npm --prefix frontend install && npm --prefix frontend run build",
+  "outputDirectory": "frontend/dist",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/callback",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/((?!api/|callback).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
