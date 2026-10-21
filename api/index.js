@@ -530,26 +530,32 @@ async function executeMeliItemUpdate(itemId, updateFields, token) {
   };
 }
 
-function createMeliToolExecutors(token) {
+const HUMAN_IN_THE_LOOP_MESSAGE =
+  'Preparei a atualização do anúncio. Verifique os dados na tela e clique em Salvar para enviar ao Mercado Livre.';
+
+function createMeliToolExecutors() {
   return {
+    // Human-in-the-Loop: NÃO envia HTTP PUT direto ao Mercado Livre; prepara os dados para o modal!
     atualizar_preco_anuncio: async ({ item_id, price }) => {
       const numericPrice = Number(price);
       if (Number.isNaN(numericPrice) || numericPrice <= 0) {
         return { error: 'Preço inválido.' };
       }
       const metrics = calculatePricingMetrics(numericPrice, productCostsMap[item_id] || 0);
-      const res = await executeMeliItemUpdate(
-        item_id,
-        { price: Number(numericPrice.toFixed(2)) },
-        token
-      );
       return {
-        ...res,
+        success: true,
+        human_in_the_loop: true,
+        status: 'pending_human_approval',
+        item_id: String(item_id).toUpperCase().replace('-', ''),
+        proposed_fields: {
+          price: Number(numericPrice.toFixed(2)),
+        },
         pricing_analysis: metrics,
         below_79_warning:
           numericPrice < 79
-            ? 'Atenção: Preço abaixo de R$ 79,00 sofre taxa fixa adicional de R$ 6,00 por unidade. Recomende agrupar em Kit/Caixa B2B para ultrapassar R$ 79,00.'
+            ? 'Atenção: Preço abaixo de R$ 79,00 sofre taxa fixa adicional de R$ 6,00 por unidade.'
             : null,
+        message: HUMAN_IN_THE_LOOP_MESSAGE,
       };
     },
 
@@ -558,7 +564,16 @@ function createMeliToolExecutors(token) {
       if (Number.isNaN(qty) || qty < 0) {
         return { error: 'Quantidade de estoque inválida.' };
       }
-      return executeMeliItemUpdate(item_id, { available_quantity: qty }, token);
+      return {
+        success: true,
+        human_in_the_loop: true,
+        status: 'pending_human_approval',
+        item_id: String(item_id).toUpperCase().replace('-', ''),
+        proposed_fields: {
+          available_quantity: qty,
+        },
+        message: HUMAN_IN_THE_LOOP_MESSAGE,
+      };
     },
 
     otimizar_titulo_b2b: async ({ item_id, title }) => {
@@ -573,22 +588,29 @@ function createMeliToolExecutors(token) {
             'Ação bloqueada pelo Auditor de Conformidade do Mercado Livre. Explique a regra violada ao usuário e sugira o título corrigido.',
         };
       }
-      const res = await executeMeliItemUpdate(item_id, { title: String(title).trim() }, token);
       return {
-        ...res,
+        success: true,
+        human_in_the_loop: true,
+        status: 'pending_human_approval',
+        item_id: String(item_id).toUpperCase().replace('-', ''),
+        proposed_fields: {
+          title: String(title).trim(),
+        },
         audit,
+        message: HUMAN_IN_THE_LOOP_MESSAGE,
       };
     },
   };
 }
 
 // ============================================================================
-// 5. Rota POST /api/chat — Copiloto B2B Pacific Flowers & Auditor ML
+// 5. Rota POST /api/chat — Copiloto B2B Pacific Flowers (Human-in-the-Loop)
 // ============================================================================
 app.get('/api/chat/config', (req, res) => {
   res.json({
     system_prompt: COPILOT_SYSTEM_PROMPT,
     tools: COPILOT_TOOLS.map((t) => t.name),
+    human_in_the_loop: true,
     gemini_configured: Boolean(process.env.GEMINI_API_KEY),
   });
 });
@@ -603,11 +625,10 @@ app.post('/api/chat', async (req, res) => {
     });
   }
 
-  const token = await ensureValidAccessToken(req, res);
-  const toolExecutors = createMeliToolExecutors(token);
+  const toolExecutors = createMeliToolExecutors();
   const resolvedApiKey = (gemini_api_key || process.env.GEMINI_API_KEY || '').trim();
 
-  // Caso a chave GEMINI_API_KEY esteja disponível, executa o ciclo oficial Interactions API (gemini-3.8-flash)
+  // Caso a chave GEMINI_API_KEY esteja disponível, executa o ciclo Interactions API (gemini-3.8-flash)
   if (resolvedApiKey) {
     try {
       const ai = new GoogleGenAI({ apiKey: resolvedApiKey });
@@ -615,6 +636,7 @@ app.post('/api/chat', async (req, res) => {
       let currentPreviousId = previous_interaction_id || undefined;
       let interaction;
       const executedTools = [];
+      let pendingApproval = null;
 
       while (true) {
         interaction = await ai.interactions.create({
@@ -639,6 +661,19 @@ app.post('/api/chat', async (req, res) => {
               result,
             });
 
+            if (result && result.human_in_the_loop && result.proposed_fields) {
+              pendingApproval = {
+                item_id: result.item_id,
+                tool_name: step.name,
+                ...(pendingApproval?.proposed_fields || {}),
+                ...result.proposed_fields,
+                proposed_fields: {
+                  ...(pendingApproval?.proposed_fields || {}),
+                  ...result.proposed_fields,
+                },
+              };
+            }
+
             functionResults.push({
               type: 'function_result',
               name: step.name,
@@ -657,9 +692,12 @@ app.post('/api/chat', async (req, res) => {
       }
 
       return res.json({
-        reply: interaction.output_text || 'Auditoria concluída.',
+        reply: pendingApproval
+          ? HUMAN_IN_THE_LOOP_MESSAGE
+          : interaction.output_text || 'Auditoria concluída.',
         interaction_id: interaction.id,
         executed_tools: executedTools,
+        pending_approval: pendingApproval,
         system_prompt_active: true,
       });
     } catch (error) {
@@ -671,12 +709,11 @@ app.post('/api/chat', async (req, res) => {
   }
 
   // ==========================================================================
-  // Motor Local de Auditoria & Function Calling (quando GEMINI_API_KEY não está definida)
-  // Garante funcionamento imediato das regras do System Prompt e das 3 Tools!
+  // Motor Local de Auditoria & Function Calling (Human-in-the-Loop)
   // ==========================================================================
   const text = String(message).trim();
   const mlbMatch = text.match(/\b(MLB[-_]?\d+)\b/i);
-  const itemId = mlbMatch ? mlbMatch[1].toUpperCase().replace('-', '') : null;
+  const itemId = mlbMatch ? mlbMatch[1].toUpperCase().replace('-', '') : 'MLB3948102938';
   const executedTools = [];
 
   // 1) Verifica se o usuário pediu otimização/alteração de título
@@ -693,41 +730,50 @@ app.post('/api/chat', async (req, res) => {
           audit.suggested_title.length
         }/60 caracteres, Foco B2B):**\n\`${audit.suggested_title}\``,
         executed_tools: [],
+        pending_approval: null,
         system_prompt_active: true,
       });
     }
 
-    if (itemId) {
-      const toolResult = await toolExecutors.otimizar_titulo_b2b({
+    const toolResult = await toolExecutors.otimizar_titulo_b2b({
+      item_id: itemId,
+      title: candidateTitle,
+    });
+    executedTools.push({
+      name: 'otimizar_titulo_b2b',
+      arguments: { item_id: itemId, title: candidateTitle },
+      result: toolResult,
+    });
+
+    return res.json({
+      reply: HUMAN_IN_THE_LOOP_MESSAGE,
+      executed_tools: executedTools,
+      pending_approval: {
         item_id: itemId,
+        tool_name: 'otimizar_titulo_b2b',
         title: candidateTitle,
-      });
-      executedTools.push({
-        name: 'otimizar_titulo_b2b',
-        arguments: { item_id: itemId, title: candidateTitle },
-        result: toolResult,
-      });
-      return res.json({
-        reply: `✅ Título auditado (${candidateTitle.length}/60 caracteres) em total conformidade com a estrutura **[Produto] + [Marca] + [Modelo] + [Especificações]** e atualizado no anúncio **${itemId}** via \`otimizar_titulo_b2b\`!`,
-        executed_tools: executedTools,
-        system_prompt_active: true,
-      });
-    }
+        proposed_fields: { title: candidateTitle },
+      },
+      system_prompt_active: true,
+    });
   }
 
-  // 2) Verifica se há violação de HTML ou dados de contato para descrição/imagem
+  // 2) Verifica se há violação de HTML na descrição
   if (/<[a-z][\s\S]*>/i.test(text)) {
     return res.json({
       reply:
         'Recuso gentilmente esta descrição: pelas **Regras de Descrição do Mercado Livre**, é terminantemente proibido o uso de **código HTML**. Utilize apenas texto puro estruturado com medidas exatas, material, formato e aplicação (ex: Gramatura 90g, Poliestireno UV).',
       executed_tools: [],
+      pending_approval: null,
       system_prompt_active: true,
     });
   }
 
-  // 3) Verifica comando de atualização de preço
-  const priceMatch = text.match(/R\$\s*(\d+(?:[.,]\d{1,2})?)|pre[cç]o\s+(?:para\s+)?(\d+(?:[.,]\d{1,2})?)/i);
-  if (/pre[cç]o|valor|atualiz/i.test(text) && priceMatch && itemId) {
+  // 3) Verifica comando de atualização de preço (Human-in-the-Loop)
+  const priceMatch = text.match(
+    /R\$\s*(\d+(?:[.,]\d{1,2})?)|pre[cç]o\s+(?:para\s+)?(\d+(?:[.,]\d{1,2})?)/i
+  );
+  if (/pre[cç]o|valor|atualiz/i.test(text) && priceMatch) {
     const rawNum = (priceMatch[1] || priceMatch[2]).replace(',', '.');
     const newPrice = Number(rawNum);
     const toolResult = await toolExecutors.atualizar_preco_anuncio({
@@ -740,25 +786,22 @@ app.post('/api/chat', async (req, res) => {
       result: toolResult,
     });
 
-    const warningMsg =
-      newPrice < 79
-        ? `\n\n⚠️ **Alerta Estratégico de Ticket (B2B):** Como o preço **R$ ${newPrice.toFixed(
-            2
-          )}** está abaixo de **R$ 79,00**, este anúncio sofre a **taxa fixa adicional de R$ 6,00** por unidade. Recomendo agrupar este produto em **Kits/Caixas de Atacado** (ex: Kit com 2 ou 3 unidades acima de R$ 79,00) para eliminar a taxa fixa e absorver o frete grátis de forma lucrativa.`
-        : '\n\n⚡ **Estratégia B2B Validada:** Preço igual ou acima de **R$ 79,00**, isento da taxa fixa de R$ 6,00 e elegível para Frete Grátis!';
-
     return res.json({
-      reply: `✅ Preço do anúncio **${itemId}** atualizado para **R$ ${newPrice.toFixed(
-        2
-      )}** via Function Calling (\`atualizar_preco_anuncio\`).${warningMsg}`,
+      reply: HUMAN_IN_THE_LOOP_MESSAGE,
       executed_tools: executedTools,
+      pending_approval: {
+        item_id: itemId,
+        tool_name: 'atualizar_preco_anuncio',
+        price: Number(newPrice.toFixed(2)),
+        proposed_fields: { price: Number(newPrice.toFixed(2)) },
+      },
       system_prompt_active: true,
     });
   }
 
-  // 4) Verifica comando de atualização de estoque
+  // 4) Verifica comando de atualização de estoque (Human-in-the-Loop)
   const stockMatch = text.match(/estoque\s+(?:para\s+)?(\d+)|(\d+)\s*unidades/i);
-  if (/estoque|quantidade|unidades/i.test(text) && stockMatch && itemId) {
+  if (/estoque|quantidade|unidades/i.test(text) && stockMatch) {
     const newQty = Number(stockMatch[1] || stockMatch[2]);
     const toolResult = await toolExecutors.atualizar_estoque({
       item_id: itemId,
@@ -771,15 +814,22 @@ app.post('/api/chat', async (req, res) => {
     });
 
     return res.json({
-      reply: `✅ Estoque do anúncio **${itemId}** atualizado para **${newQty} unidades** via Function Calling (\`atualizar_estoque\`).`,
+      reply: HUMAN_IN_THE_LOOP_MESSAGE,
       executed_tools: executedTools,
+      pending_approval: {
+        item_id: itemId,
+        tool_name: 'atualizar_estoque',
+        available_quantity: newQty,
+        proposed_fields: { available_quantity: newQty },
+      },
       system_prompt_active: true,
     });
   }
 
   return res.json({
-    reply: `Sou o **Copiloto de Vendas B2B da Pacific Flowers** e Auditor de Conformidade do Mercado Livre.\n\nEstou com as diretrizes ativas para validar:\n1. **Regras de Título:** Máx. 60 caracteres, abertura com quantidade em Kits B2B, zero termos promocionais (*Oferta, Frete Grátis, Promoção, Brinde*) ou símbolos (*!!!, \\*\\*\\**).\n2. **Regras de Imagem (Foto 1):** Fundo 100% branco puro digital \`RGB(255, 255, 255)\`, produto ocupando $\\ge 70\\%$ do quadro, sem logotipos/marcas d'água/QR codes.\n3. **Regras de Descrição:** Texto 100% puro (proibido HTML ou dados de contato) com especificações técnicas.\n4. **Estratégia de Ticket B2B:** Alerta contra a taxa fixa de R$ 6,00 abaixo de R$ 79,00.\n\n**Exemplos de comandos conectados ao Function Calling:**\n- \`Otimizar título do MLB3948102938 para "Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers"\`\n- \`Atualizar preço do MLB3948102938 para R$ 89,90\`\n- \`Atualizar estoque do MLB4019283741 para 120 unidades\``,
+    reply: `Sou o **Copiloto de Vendas B2B da Pacific Flowers** e Auditor de Conformidade do Mercado Livre (Modo **Human-in-the-Loop** ativo).\n\nSempre que você solicitar uma alteração de **Título**, **Preço** ou **Estoque**, irei validar as regras do Mercado Livre e abrir automaticamente o **Modal de Edição** preenchido com os novos dados para sua revisão final antes do envio ao Mercado Livre.`,
     executed_tools: [],
+    pending_approval: null,
     system_prompt_active: true,
   });
 });

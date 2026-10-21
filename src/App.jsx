@@ -46,10 +46,14 @@ export default function App() {
   });
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Estados do Modal de Edição (Human-in-the-Loop + Edição Manual)
   const [selectedItem, setSelectedItem] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editCost, setEditCost] = useState('');
   const [editStock, setEditStock] = useState('');
+  const [isAiSuggested, setIsAiSuggested] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
@@ -66,11 +70,11 @@ export default function App() {
   const [budgetDrafts, setBudgetDrafts] = useState({});
   const [updatingCampaignId, setUpdatingCampaignId] = useState(null);
 
-  // Estados do Copiloto B2B (/api/chat)
+  // Estados do Copiloto B2B (/api/chat com Human-in-the-Loop)
   const [chatMessages, setChatMessages] = useState([
     {
       role: 'assistant',
-      text: 'Olá! Sou o Copiloto de Vendas B2B da Pacific Flowers e Auditor de Conformidade do Mercado Livre. Posso auditar títulos (máx. 60 caracteres, estrutura B2B, sem termos promocionais), validar fotos/descrições e executar Function Calling (`atualizar_preco_anuncio`, `atualizar_estoque`, `otimizar_titulo_b2b`). Como posso ajudar?',
+      text: 'Olá! Sou o Copiloto de Vendas B2B da Pacific Flowers (Modo Human-in-the-Loop ativo). Quando você pedir para otimizar um título ou atualizar preço/estoque, validarei as políticas do Mercado Livre e abrirei automaticamente o Modal de Edição preenchido para você revisar e clicar em Salvar.',
       tools: [],
     },
   ]);
@@ -84,7 +88,10 @@ export default function App() {
     const dialog = dialogRef.current;
     if (!dialog) return;
 
-    const handleClose = () => setSelectedItem(null);
+    const handleClose = () => {
+      setSelectedItem(null);
+      setIsAiSuggested(false);
+    };
     dialog.addEventListener('close', handleClose);
 
     let handleBackdropClick;
@@ -298,6 +305,42 @@ export default function App() {
     }
   }
 
+  /**
+   * Abre o Modal de Edição (Slide-Over).
+   * Quando acionado pelo fluxo Human-in-the-Loop da IA (aiProposal), pré-preenche
+   * o novo Título, Preço e Estoque sugeridos pela IA sem disparar o PUT até o clique em Salvar!
+   */
+  function openEditSlideOver(item, aiProposal = null) {
+    const nextTitle =
+      aiProposal?.title ?? aiProposal?.proposed_fields?.title ?? item.title ?? '';
+    const nextPrice =
+      aiProposal?.price ?? aiProposal?.proposed_fields?.price ?? item.price ?? 0;
+    const nextStock =
+      aiProposal?.available_quantity ??
+      aiProposal?.proposed_fields?.available_quantity ??
+      item.available_quantity ??
+      0;
+
+    setSelectedItem(item);
+    setEditTitle(String(nextTitle));
+    setEditPrice(String(nextPrice));
+    setEditCost(String(item.product_cost ?? 0));
+    setEditStock(String(nextStock));
+    setIsAiSuggested(Boolean(aiProposal));
+
+    if (dialogRef.current && !dialogRef.current.open) {
+      dialogRef.current.showModal();
+    }
+  }
+
+  function closeEditSlideOver() {
+    if (dialogRef.current && dialogRef.current.open) {
+      dialogRef.current.close();
+    }
+    setSelectedItem(null);
+    setIsAiSuggested(false);
+  }
+
   async function handleSendChatMessage(event, presetText = null) {
     if (event) event.preventDefault();
     const textToSend = presetText ?? chatInput;
@@ -335,9 +378,24 @@ export default function App() {
         },
       ]);
 
-      // Se uma Function Call alterou preço, estoque ou título, sincroniza a tabela
-      if (data.executed_tools && data.executed_tools.length > 0) {
-        await fetchItems(true);
+      // HUMAN-IN-THE-LOOP: Se a IA gerou uma proposta de atualização, abre o Modal de Edição
+      // preenchido com Título, Preço e Estoque sugeridos, aguardando o clique físico em "Salvar"!
+      if (data.pending_approval) {
+        const targetId = data.pending_approval.item_id;
+        const matchedItem =
+          items.find((it) => it.id.toUpperCase() === String(targetId).toUpperCase()) ||
+          items[0] || {
+            id: targetId || 'MLB3948102938',
+            title: 'Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers',
+            price: 69.9,
+            product_cost: 22.5,
+            available_quantity: 85,
+            status: 'active',
+            thumbnail:
+              'https://http2.mlstatic.com/D_NQ_NP_2X_601411-MLA74651415532_022024-F.webp',
+          };
+
+        openEditSlideOver(matchedItem, data.pending_approval);
       }
     } catch (err) {
       setChatMessages((prev) => [
@@ -347,23 +405,6 @@ export default function App() {
     } finally {
       setChatLoading(false);
     }
-  }
-
-  function openEditSlideOver(item) {
-    setSelectedItem(item);
-    setEditPrice(String(item.price));
-    setEditCost(String(item.product_cost ?? 0));
-    setEditStock(String(item.available_quantity));
-    if (dialogRef.current && !dialogRef.current.open) {
-      dialogRef.current.showModal();
-    }
-  }
-
-  function closeEditSlideOver() {
-    if (dialogRef.current && dialogRef.current.open) {
-      dialogRef.current.close();
-    }
-    setSelectedItem(null);
   }
 
   function handlePriceChange(val) {
@@ -388,6 +429,7 @@ export default function App() {
     }
   }
 
+  // O envio real via HTTP PUT para a API do Mercado Livre SÓ acontece quando o usuário clica em "Salvar" no modal!
   async function handleSaveItem(event) {
     event.preventDefault();
     if (!selectedItem) return;
@@ -400,6 +442,7 @@ export default function App() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          title: editTitle.trim(),
           price: Number(editPrice),
           product_cost: Number(editCost),
           available_quantity: Number(editStock),
@@ -417,7 +460,7 @@ export default function App() {
 
       setFeedback({
         type: 'success',
-        text: `Anúncio ${selectedItem.id} salvo! Preço, Custo Pacific Flowers e Estoque sincronizados.`,
+        text: `Anúncio ${selectedItem.id} aprovado e enviado ao Mercado Livre com sucesso!`,
       });
       closeEditSlideOver();
     } catch (err) {
@@ -1009,16 +1052,16 @@ export default function App() {
           </>
         ) : (
           /* ================================================================
-           * VIEW 3: COPILOTO DE VENDAS B2B & AUDITOR DE CONFORMIDADE (/api/chat)
+           * VIEW 3: COPILOTO DE VENDAS B2B & AUDITOR (HUMAN-IN-THE-LOOP)
            * ================================================================ */
           <>
             <header className="topbar">
               <div>
                 <h1 className="page-title">
-                  Copiloto de Vendas B2B & Auditor Mercado Livre
+                  Copiloto de Vendas B2B — Aprovação Manual (Human-in-the-Loop)
                 </h1>
                 <p className="page-subtitle">
-                  Assistente com Function Calling (`atualizar_preco_anuncio`, `atualizar_estoque`, `otimizar_titulo_b2b`) e auditoria estrita de SEO/Catálogo ML.
+                  A IA audita as políticas do Mercado Livre e abre o Modal de Edição preenchido com Título, Preço e Estoque sugeridos. O PUT só é enviado ao clicar em Salvar.
                 </p>
               </div>
             </header>
@@ -1030,11 +1073,13 @@ export default function App() {
                 onClick={() =>
                   handleSendChatMessage(
                     null,
-                    'Otimizar título do MLB3948102938 para "PROMOÇÃO!!! Kit 50 Caixas Presente Floral Frete Grátis Pacific Flowers"'
+                    `Otimizar título do ${
+                      items[0]?.id || 'MLB3948102938'
+                    } para "PROMOÇÃO!!! Kit 50 Caixas Presente Floral Frete Grátis Pacific Flowers"`
                   )
                 }
               >
-                Testar Violação de Título (Promoção + &gt;60 chars)
+                1. Testar Bloqueio de Violação (Promoção + &gt;60 chars)
               </button>
               <button
                 type="button"
@@ -1042,11 +1087,13 @@ export default function App() {
                 onClick={() =>
                   handleSendChatMessage(
                     null,
-                    'Otimizar título do MLB3948102938 para "Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers"'
+                    `Otimizar título do ${
+                      items[0]?.id || 'MLB3948102938'
+                    } para "Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers"`
                   )
                 }
               >
-                Testar Título B2B Válido (Function Calling)
+                2. Sugerir Título B2B (Abre Modal p/ Aprovação)
               </button>
               <button
                 type="button"
@@ -1054,11 +1101,11 @@ export default function App() {
                 onClick={() =>
                   handleSendChatMessage(
                     null,
-                    'Atualizar preço do MLB3948102938 para R$ 65,00'
+                    `Atualizar preço do ${items[0]?.id || 'MLB3948102938'} para R$ 94,90`
                   )
                 }
               >
-                Testar Alerta de Preço &lt; R$ 79,00
+                3. Sugerir Novo Preço R$ 94,90 (Abre Modal p/ Aprovação)
               </button>
             </div>
 
@@ -1117,8 +1164,10 @@ export default function App() {
                           fontFamily: 'JetBrains Mono, monospace',
                         }}
                       >
-                        ⚡ Function Call executada:{' '}
-                        {msg.tools.map((t) => `${t.name}(${JSON.stringify(t.arguments)})`).join(', ')}
+                        ⚡ Function Call preparada (aguardando Salvar no Modal):{' '}
+                        {msg.tools
+                          .map((t) => `${t.name}(${JSON.stringify(t.arguments)})`)
+                          .join(', ')}
                       </div>
                     )}
                   </div>
@@ -1133,12 +1182,12 @@ export default function App() {
                   type="text"
                   className="form-input"
                   style={{ flex: 1 }}
-                  placeholder="Peça ao Copiloto B2B para auditar um título, descrição ou atualizar preço/estoque..."
+                  placeholder="Peça ao Copiloto B2B para otimizar título ou atualizar preço/estoque..."
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                 />
                 <button type="submit" className="btn-primary" disabled={chatLoading}>
-                  {chatLoading ? 'Auditando...' : 'Enviar para /api/chat'}
+                  {chatLoading ? 'Preparando...' : 'Enviar para /api/chat'}
                 </button>
               </form>
             </div>
@@ -1146,7 +1195,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Slide-Over Modal Nativo (<dialog closedby="any">) */}
+      {/* Slide-Over Modal de Edição (<dialog closedby="any">) — Human-in-the-Loop */}
       <dialog
         ref={dialogRef}
         closedby="any"
@@ -1161,7 +1210,7 @@ export default function App() {
             <div className="slideover-header">
               <div>
                 <h2 id="slideover-title" style={{ fontSize: '1.1rem', fontWeight: 600 }}>
-                  Editar Anúncio & Simular Margem
+                  Modal de Edição do Anúncio
                 </h2>
                 <span className="mono-id">{selectedItem.id}</span>
               </div>
@@ -1176,15 +1225,33 @@ export default function App() {
             </div>
 
             <div className="slideover-body">
+              {isAiSuggested && (
+                <div
+                  style={{
+                    padding: '0.75rem 0.9rem',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(139, 92, 246, 0.16)',
+                    border: '1px solid rgba(139, 92, 246, 0.55)',
+                    fontSize: '0.8rem',
+                    color: '#e9d5ff',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  <strong>⚡ Sugestão do Copiloto IA (Human-in-the-Loop):</strong>{' '}
+                  Preparei a atualização do anúncio. Verifique os dados na tela e clique em{' '}
+                  <strong>Salvar</strong> para enviar ao Mercado Livre.
+                </div>
+              )}
+
               <div className="slideover-item-preview">
                 <img
                   src={selectedItem.thumbnail}
-                  alt={selectedItem.title}
+                  alt={editTitle || selectedItem.title}
                   className="item-thumb"
                 />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                   <div style={{ fontSize: '0.86rem', fontWeight: 500, lineHeight: 1.35 }}>
-                    {selectedItem.title}
+                    {editTitle || selectedItem.title}
                   </div>
                   {selectedItem.permalink && (
                     <a
@@ -1198,6 +1265,33 @@ export default function App() {
                     </a>
                   )}
                 </div>
+              </div>
+
+              <div className="form-field">
+                <label
+                  htmlFor="title-input"
+                  style={{ display: 'flex', justifyContent: 'space-between' }}
+                >
+                  <span>Título do Anúncio (SEO B2B)</span>
+                  <span
+                    className="mono-id"
+                    style={{
+                      color: editTitle.length > 60 ? '#f87171' : '#a78bfa',
+                    }}
+                  >
+                    {editTitle.length}/60 caracteres
+                  </span>
+                </label>
+                <input
+                  id="title-input"
+                  type="text"
+                  maxLength={60}
+                  required
+                  className="form-input"
+                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.86rem' }}
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                />
               </div>
 
               <div className="form-grid">
@@ -1310,7 +1404,7 @@ export default function App() {
                 Cancelar
               </button>
               <button type="submit" className="btn-primary" disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar Alterações'}
+                {saving ? 'Enviando ao ML...' : 'Salvar'}
               </button>
             </div>
           </form>
