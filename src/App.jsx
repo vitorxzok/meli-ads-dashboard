@@ -5,9 +5,6 @@ const brlFormatter = new Intl.NumberFormat('pt-BR', {
   currency: 'BRL',
 });
 
-/**
- * Motor Matemático do Simulador de Margem e Gatilho de Frete Grátis (Pacific Flowers)
- */
 export function calculateMeliSimulator(salePrice, productCost) {
   const price = Number(salePrice) || 0;
   const cost = Number(productCost) || 0;
@@ -36,7 +33,7 @@ export function calculateMeliSimulator(salePrice, productCost) {
 }
 
 export default function App() {
-  // Controle de Navegação da Sidebar ('ads_items' = Meus Anúncios | 'mercado_ads' = Mercado Ads)
+  // Controle de Navegação da Sidebar ('ads_items' | 'mercado_ads' | 'copilot_chat')
   const [activeView, setActiveView] = useState('ads_items');
 
   // Estados de Autenticação e Anúncios Orgânicos
@@ -69,9 +66,20 @@ export default function App() {
   const [budgetDrafts, setBudgetDrafts] = useState({});
   const [updatingCampaignId, setUpdatingCampaignId] = useState(null);
 
+  // Estados do Copiloto B2B (/api/chat)
+  const [chatMessages, setChatMessages] = useState([
+    {
+      role: 'assistant',
+      text: 'Olá! Sou o Copiloto de Vendas B2B da Pacific Flowers e Auditor de Conformidade do Mercado Livre. Posso auditar títulos (máx. 60 caracteres, estrutura B2B, sem termos promocionais), validar fotos/descrições e executar Function Calling (`atualizar_preco_anuncio`, `atualizar_estoque`, `otimizar_titulo_b2b`). Como posso ajudar?',
+      tools: [],
+    },
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [previousInteractionId, setPreviousInteractionId] = useState(null);
+
   const dialogRef = useRef(null);
 
-  // Fallback para light-dismiss em navegadores sem suporte a <dialog closedby="any">
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
@@ -104,7 +112,6 @@ export default function App() {
     };
   }, []);
 
-  // Inicialização e interceptação de callback OAuth 2.0
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
@@ -140,7 +147,11 @@ export default function App() {
           setFeedback({ type: 'error', text: err.message });
         }
       }
-      await Promise.all([fetchAuthStatus(), fetchItems(authResult === 'success'), fetchMercadoAdsData()]);
+      await Promise.all([
+        fetchAuthStatus(),
+        fetchItems(authResult === 'success'),
+        fetchMercadoAdsData(),
+      ]);
     }
 
     init();
@@ -175,7 +186,6 @@ export default function App() {
     }
   }
 
-  // Carrega Campanhas (/api/ads/campaigns) e Métricas de 30 dias (/api/ads/metrics)
   async function fetchMercadoAdsData() {
     setAdsLoading(true);
     try {
@@ -194,7 +204,6 @@ export default function App() {
       const loadedCampaigns = campData.campaigns || [];
       setCampaigns(loadedCampaigns);
 
-      // Inicializa os inputs editáveis de Orçamento Diário
       const drafts = {};
       for (const c of loadedCampaigns) {
         drafts[c.id] = String(c.budget);
@@ -211,7 +220,6 @@ export default function App() {
     }
   }
 
-  // PUT /api/ads/campaigns/:id -> Alterna Status (Toggle Liga/Desliga em Roxo Elétrico)
   async function handleToggleCampaignStatus(campaign) {
     const nextStatus = campaign.status === 'active' ? 'paused' : 'active';
     setUpdatingCampaignId(campaign.id);
@@ -246,7 +254,6 @@ export default function App() {
     }
   }
 
-  // PUT /api/ads/campaigns/:id -> Salva novo Orçamento Diário (budget)
   async function handleSaveCampaignBudget(campaignId) {
     const rawValue = budgetDrafts[campaignId];
     const parsedBudget = Number(rawValue);
@@ -288,6 +295,57 @@ export default function App() {
       setFeedback({ type: 'error', text: err.message });
     } finally {
       setUpdatingCampaignId(null);
+    }
+  }
+
+  async function handleSendChatMessage(event, presetText = null) {
+    if (event) event.preventDefault();
+    const textToSend = presetText ?? chatInput;
+    if (!textToSend.trim() || chatLoading) return;
+
+    const userMsg = textToSend.trim();
+    setChatMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
+    if (!presetText) setChatInput('');
+    setChatLoading(true);
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMsg,
+          previous_interaction_id: previousInteractionId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Erro ao consultar Copiloto B2B.');
+      }
+
+      if (data.interaction_id) {
+        setPreviousInteractionId(data.interaction_id);
+      }
+
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          text: data.reply,
+          tools: data.executed_tools || [],
+        },
+      ]);
+
+      // Se uma Function Call alterou preço, estoque ou título, sincroniza a tabela
+      if (data.executed_tools && data.executed_tools.length > 0) {
+        await fetchItems(true);
+      }
+    } catch (err) {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', text: `Erro: ${err.message}`, tools: [] },
+      ]);
+    } finally {
+      setChatLoading(false);
     }
   }
 
@@ -378,7 +436,6 @@ export default function App() {
     );
   }, [items, searchQuery]);
 
-  // Filtro de Campanhas do Mercado Ads (com suporte ao Filtro B2B: Preço > R$ 79,00)
   const filteredCampaigns = useMemo(() => {
     const q = adsSearchQuery.trim().toLowerCase();
     return campaigns.filter((camp) => {
@@ -403,7 +460,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {/* Sidebar com "Meus Anúncios" e "Mercado Ads" */}
+      {/* Sidebar com "Meus Anúncios", "Mercado Ads" e "Copiloto B2B (IA)" */}
       <aside className="sidebar">
         <div>
           <div className="brand">
@@ -431,6 +488,15 @@ export default function App() {
             >
               <span className="nav-indicator" />
               <span>Mercado Ads</span>
+            </button>
+
+            <button
+              type="button"
+              className={`nav-item ${activeView === 'copilot_chat' ? 'active' : ''}`}
+              onClick={() => setActiveView('copilot_chat')}
+            >
+              <span className="nav-indicator" />
+              <span>Copiloto B2B (IA)</span>
             </button>
           </nav>
         </div>
@@ -485,9 +551,6 @@ export default function App() {
         )}
 
         {activeView === 'ads_items' ? (
-          /* ================================================================
-           * VIEW 1: MEUS ANÚNCIOS & SIMULADOR DE MARGEM
-           * ================================================================ */
           <>
             <header className="topbar">
               <div>
@@ -661,10 +724,7 @@ export default function App() {
               </table>
             </div>
           </>
-        ) : (
-          /* ================================================================
-           * VIEW 2: MERCADO ADS (GERENCIAMENTO DE TRÁFEGO PAGO & FILTRO B2B)
-           * ================================================================ */
+        ) : activeView === 'mercado_ads' ? (
           <>
             <header className="topbar">
               <div>
@@ -693,7 +753,6 @@ export default function App() {
               </div>
             </header>
 
-            {/* Resumo de Performance dos Últimos 30 Dias (/api/ads/metrics) */}
             <div className="kpi-grid">
               <div className="kpi-card">
                 <span className="kpi-label">Faturamento Ads (30 Dias)</span>
@@ -730,9 +789,15 @@ export default function App() {
               </div>
             </div>
 
-            {/* Barra de Busca + Botão de Regra de Negócio (Filtro B2B > R$ 79,00) */}
             <div className="toolbar">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  flexWrap: 'wrap',
+                }}
+              >
                 <input
                   type="search"
                   className="search-input"
@@ -760,7 +825,6 @@ export default function App() {
               </span>
             </div>
 
-            {/* Data Table Dedicada para Anúncios Patrocinados (Mercado Ads) */}
             <div className="table-card">
               <table className="ads-table">
                 <thead>
@@ -868,7 +932,6 @@ export default function App() {
                             </div>
                           </td>
 
-                          {/* Coluna Status: Toggle Switch com brilho em Roxo Elétrico */}
                           <td>
                             <div className="toggle-wrapper">
                               <button
@@ -888,7 +951,6 @@ export default function App() {
                             </div>
                           </td>
 
-                          {/* Coluna Orçamento Diário: Input Editável + Botão Salvar ao lado */}
                           <td>
                             <div className="budget-editor">
                               <div className="budget-input-group">
@@ -919,7 +981,6 @@ export default function App() {
                             </div>
                           </td>
 
-                          {/* Coluna Faturamento Ads (30d) */}
                           <td className="profit-positive">
                             {brlFormatter.format(revenue30d)}
                             <div
@@ -933,7 +994,6 @@ export default function App() {
                             </div>
                           </td>
 
-                          {/* Coluna ACOS (%) */}
                           <td>
                             <span className={`margin-pill ${acosBadgeClass}`}>
                               {acosValue.toFixed(1)}%
@@ -947,10 +1007,146 @@ export default function App() {
               </table>
             </div>
           </>
+        ) : (
+          /* ================================================================
+           * VIEW 3: COPILOTO DE VENDAS B2B & AUDITOR DE CONFORMIDADE (/api/chat)
+           * ================================================================ */
+          <>
+            <header className="topbar">
+              <div>
+                <h1 className="page-title">
+                  Copiloto de Vendas B2B & Auditor Mercado Livre
+                </h1>
+                <p className="page-subtitle">
+                  Assistente com Function Calling (`atualizar_preco_anuncio`, `atualizar_estoque`, `otimizar_titulo_b2b`) e auditoria estrita de SEO/Catálogo ML.
+                </p>
+              </div>
+            </header>
+
+            <div className="toolbar" style={{ justifyContent: 'flex-start', gap: '0.6rem' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  handleSendChatMessage(
+                    null,
+                    'Otimizar título do MLB3948102938 para "PROMOÇÃO!!! Kit 50 Caixas Presente Floral Frete Grátis Pacific Flowers"'
+                  )
+                }
+              >
+                Testar Violação de Título (Promoção + &gt;60 chars)
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  handleSendChatMessage(
+                    null,
+                    'Otimizar título do MLB3948102938 para "Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers"'
+                  )
+                }
+              >
+                Testar Título B2B Válido (Function Calling)
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  handleSendChatMessage(
+                    null,
+                    'Atualizar preço do MLB3948102938 para R$ 65,00'
+                  )
+                }
+              >
+                Testar Alerta de Preço &lt; R$ 79,00
+              </button>
+            </div>
+
+            <div
+              className="table-card"
+              style={{
+                padding: '1.25rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+                minHeight: '460px',
+              }}
+            >
+              <div
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.85rem',
+                  maxHeight: '420px',
+                  overflowY: 'auto',
+                  paddingRight: '0.5rem',
+                }}
+              >
+                {chatMessages.map((msg, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                      maxWidth: '82%',
+                      backgroundColor:
+                        msg.role === 'user'
+                          ? 'rgba(139, 92, 246, 0.2)'
+                          : 'var(--bg-base)',
+                      border: `1px solid ${
+                        msg.role === 'user'
+                          ? 'rgba(139, 92, 246, 0.5)'
+                          : 'var(--border-subtle)'
+                      }`,
+                      borderRadius: '10px',
+                      padding: '0.85rem 1rem',
+                      fontSize: '0.86rem',
+                      lineHeight: 1.5,
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    <div>{msg.text}</div>
+                    {msg.tools && msg.tools.length > 0 && (
+                      <div
+                        style={{
+                          marginTop: '0.65rem',
+                          paddingTop: '0.5rem',
+                          borderTop: '1px dashed var(--border-subtle)',
+                          fontSize: '0.75rem',
+                          color: '#c4b5fd',
+                          fontFamily: 'JetBrains Mono, monospace',
+                        }}
+                      >
+                        ⚡ Function Call executada:{' '}
+                        {msg.tools.map((t) => `${t.name}(${JSON.stringify(t.arguments)})`).join(', ')}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <form
+                onSubmit={handleSendChatMessage}
+                style={{ display: 'flex', gap: '0.75rem', marginTop: 'auto' }}
+              >
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ flex: 1 }}
+                  placeholder="Peça ao Copiloto B2B para auditar um título, descrição ou atualizar preço/estoque..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                />
+                <button type="submit" className="btn-primary" disabled={chatLoading}>
+                  {chatLoading ? 'Auditando...' : 'Enviar para /api/chat'}
+                </button>
+              </form>
+            </div>
+          </>
         )}
       </main>
 
-      {/* Slide-Over Modal Nativo (<dialog closedby="any">) para editar Preço, Custo Pacific Flowers e Estoque */}
+      {/* Slide-Over Modal Nativo (<dialog closedby="any">) */}
       <dialog
         ref={dialogRef}
         closedby="any"
@@ -1048,7 +1244,6 @@ export default function App() {
                 />
               </div>
 
-              {/* Simulador de Margem e Gatilho de Frete Grátis em Tempo Real */}
               <div className="simulator-card">
                 <div className="simulator-card-header">
                   <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
