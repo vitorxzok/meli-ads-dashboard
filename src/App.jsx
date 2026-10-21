@@ -44,8 +44,7 @@ export default function App() {
   const [source, setSource] = useState('loading');
   const [authStatus, setAuthStatus] = useState({
     authenticated: false,
-    auth_url:
-      'https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=8994097000713485&redirect_uri=https%3A%2F%2Flocalhost%3A3000%2Fcallback',
+    auth_url: '/api/auth/login',
     user_id: null,
   });
   const [loading, setLoading] = useState(true);
@@ -109,9 +108,19 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
+    const authResult = params.get('auth');
+    const returnedUserId = params.get('user_id');
 
     async function init() {
-      if (code) {
+      if (authResult === 'success') {
+        setFeedback({
+          type: 'success',
+          text: `Conta Mercado Livre conectada com sucesso${
+            returnedUserId ? ` (Seller ID: ${returnedUserId})` : ''
+          }! Carregando todos os anúncios da conta...`,
+        });
+        window.history.replaceState({}, document.title, '/');
+      } else if (code) {
         try {
           const res = await fetch(`/api/auth/callback?code=${encodeURIComponent(code)}`);
           const data = await res.json();
@@ -131,7 +140,7 @@ export default function App() {
           setFeedback({ type: 'error', text: err.message });
         }
       }
-      await Promise.all([fetchAuthStatus(), fetchItems(), fetchMercadoAdsData()]);
+      await Promise.all([fetchAuthStatus(), fetchItems(authResult === 'success'), fetchMercadoAdsData()]);
     }
 
     init();

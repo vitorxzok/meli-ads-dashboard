@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,11 +18,42 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const ML_API_BASE = 'https://api.mercadolibre.com';
 
-app.use(cors());
+const DEFAULT_APP_ID = (process.env.APP_ID || '8994097000713485').trim();
+const DEFAULT_SECRET_KEY = (process.env.SECRET_KEY || 'bLOGM4wmQHP76FcSYpzPFyAAX4TeTkzg').trim();
+
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 // ============================================================================
-// High-Performance In-Memory Token, Cost & Cache Store (with disk persistence)
+// PKCE (RFC 7636) Determinístico para Serverless (OAuth 2.0 Mercado Livre)
+// ============================================================================
+function getPkcePair() {
+  // Gera um code_verifier determinístico de 43 caracteres base64url seguro
+  const codeVerifier = crypto
+    .createHmac('sha256', DEFAULT_SECRET_KEY)
+    .update(`meli-pkce-${DEFAULT_APP_ID}`)
+    .digest('base64url');
+
+  // Calcula o code_challenge S256 exigido pelo Mercado Livre
+  const codeChallenge = crypto
+    .createHash('sha256')
+    .update(codeVerifier)
+    .digest('base64url');
+
+  return { codeVerifier, codeChallenge };
+}
+
+function getRedirectUri(req) {
+  if (process.env.REDIRECT_URI) return process.env.REDIRECT_URI.trim();
+  if (req && req.headers?.host) {
+    const proto = req.headers['x-forwarded-proto'] || 'https';
+    return `${proto}://${req.headers.host}/callback`;
+  }
+  return 'https://pacific-flowers-meli-ads.vercel.app/callback';
+}
+
+// ============================================================================
+// Gerenciamento de Sessão Híbrido (Memória + /tmp + Cookie HTTP p/ Serverless)
 // ============================================================================
 let authSession = {
   access_token: process.env.ML_ACCESS_TOKEN || null,
@@ -30,16 +62,55 @@ let authSession = {
   expires_at: null,
 };
 
-// Armazena o Custo do Produto (valor de produção interna Pacific Flowers) por ID de anúncio
-let productCostsMap = {
-  MLB3948102938: 22.5,
-  MLB4019283741: 38.0,
-  MLB3819203940: 19.9,
-  MLB3728192031: 49.0,
-  MLB4102938475: 26.0,
-};
+let productCostsMap = {};
 
-// Demo dataset de Anúncios (Meus Anúncios)
+function parseCookies(req) {
+  const list = {};
+  const cookieHeader = req?.headers?.cookie;
+  if (!cookieHeader) return list;
+  cookieHeader.split(';').forEach((cookie) => {
+    let [name, ...rest] = cookie.split('=');
+    name = name?.trim();
+    if (!name) return;
+    const value = rest.join('=').trim();
+    if (!value) return;
+    list[name] = decodeURIComponent(value);
+  });
+  return list;
+}
+
+function setSessionCookie(res, sessionObj) {
+  try {
+    const encoded = Buffer.from(JSON.stringify(sessionObj), 'utf-8').toString('base64url');
+    const isProd = Boolean(process.env.VERCEL);
+    res.setHeader(
+      'Set-Cookie',
+      `meli_session=${encoded}; Path=/; Max-Age=${60 * 60 * 24 * 30}; SameSite=Lax${
+        isProd ? '; Secure' : ''
+      }`
+    );
+  } catch (err) {
+    console.warn('[Cookie] Erro ao gravar cookie de sessão:', err.message);
+  }
+}
+
+function hydrateSessionFromCookie(req) {
+  try {
+    const cookies = parseCookies(req);
+    if (cookies.meli_session) {
+      const decoded = JSON.parse(
+        Buffer.from(cookies.meli_session, 'base64url').toString('utf-8')
+      );
+      if (decoded && decoded.access_token) {
+        authSession = { ...authSession, ...decoded };
+      }
+    }
+  } catch {
+    // Cookie inválido ou ausente
+  }
+}
+
+// Demo dataset (exibido apenas antes de autenticar a conta real)
 let demoItems = [
   {
     id: 'MLB3948102938',
@@ -63,42 +134,8 @@ let demoItems = [
     thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_847192-MLA75123981234_032024-F.webp',
     permalink: 'https://produto.mercadolivre.com.br/MLB-4019283741',
   },
-  {
-    id: 'MLB3819203940',
-    title: 'Pacote 100 Tags Cartão Kraft Decorado Buquê & Papelaria Fina',
-    price: 54.9,
-    product_cost: 19.9,
-    available_quantity: 140,
-    status: 'active',
-    currency_id: 'BRL',
-    thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_781234-MLA73981234561_012024-F.webp',
-    permalink: 'https://produto.mercadolivre.com.br/MLB-3819203940',
-  },
-  {
-    id: 'MLB3728192031',
-    title: 'Kit Embalagem Celofane BOPP Transparente p/ Arranjos (500 un)',
-    price: 149.0,
-    product_cost: 49.0,
-    available_quantity: 0,
-    status: 'paused',
-    currency_id: 'BRL',
-    thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_918273-MLA72839182736_112023-F.webp',
-    permalink: 'https://produto.mercadolivre.com.br/MLB-3728192031',
-  },
-  {
-    id: 'MLB4102938475',
-    title: 'Caixa Organizadora Rígida Linha Luxo Pacific Flowers Atacado',
-    price: 79.0,
-    product_cost: 26.0,
-    available_quantity: 27,
-    status: 'active',
-    currency_id: 'BRL',
-    thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_654321-MLA74918273645_032024-F.webp',
-    permalink: 'https://produto.mercadolivre.com.br/MLB-4102938475',
-  },
 ];
 
-// Demo dataset de Campanhas Patrocinadas (Mercado Ads - últimos 30 dias)
 let demoAdsCampaigns = [
   {
     id: 'CMP-9081721',
@@ -112,60 +149,12 @@ let demoAdsCampaigns = [
     ads_spend_30d: 1659.9,
     acos: 11.2,
   },
-  {
-    id: 'CMP-9081722',
-    item_id: 'MLB3728192031',
-    name: 'Kit 500un Embalagem Celofane BOPP Transparente Floricultura Atacado',
-    thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_918273-MLA72839182736_112023-F.webp',
-    status: 'active',
-    budget: 120.0,
-    kit_price: 149.0,
-    ads_revenue_30d: 22450.0,
-    ads_spend_30d: 2132.75,
-    acos: 9.5,
-  },
-  {
-    id: 'CMP-9081723',
-    item_id: 'MLB3948102938',
-    name: 'Pacote Unitário Caixas Presente Floral 25x25cm (Varejo)',
-    thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_601411-MLA74651415532_022024-F.webp',
-    status: 'paused',
-    budget: 35.0,
-    kit_price: 69.9,
-    ads_revenue_30d: 1890.0,
-    ads_spend_30d: 538.65,
-    acos: 28.5,
-  },
-  {
-    id: 'CMP-9081724',
-    item_id: 'MLB4102938475',
-    name: 'Kit Master 20 Caixas Organizadoras Rígidas Linha Luxo Pacific Flowers',
-    thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_654321-MLA74918273645_032024-F.webp',
-    status: 'active',
-    budget: 150.0,
-    kit_price: 389.0,
-    ads_revenue_30d: 31290.0,
-    ads_spend_30d: 2440.62,
-    acos: 7.8,
-  },
-  {
-    id: 'CMP-9081725',
-    item_id: 'MLB3819203940',
-    name: 'Bloco Unitário 100 Tags Cartão Kraft Decorado Buquê',
-    thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_781234-MLA73981234561_012024-F.webp',
-    status: 'active',
-    budget: 25.0,
-    kit_price: 54.9,
-    ads_revenue_30d: 1420.0,
-    ads_spend_30d: 443.04,
-    acos: 31.2,
-  },
 ];
 
 const itemsCache = {
   data: null,
   timestamp: 0,
-  ttlMs: 15_000,
+  ttlMs: 20_000,
 };
 
 // ============================================================================
@@ -200,7 +189,7 @@ function enrichItemWithMetrics(item) {
   const cost =
     item.product_cost !== undefined
       ? Number(item.product_cost)
-      : productCostsMap[item.id] ?? Number((item.price * 0.35).toFixed(2));
+      : productCostsMap[item.id] ?? 0;
   return {
     ...item,
     ...calculatePricingMetrics(item.price, cost),
@@ -233,7 +222,6 @@ async function loadSavedState() {
     const parsedTokens = JSON.parse(rawTokens);
     if (parsedTokens.access_token) {
       authSession = { ...authSession, ...parsedTokens };
-      console.log(`[Auth] Sessão carregada para o user_id: ${authSession.user_id}`);
     }
   } catch {
     // No saved token file yet
@@ -257,7 +245,7 @@ async function saveProductCost(itemId, costValue) {
   }
 }
 
-async function saveTokens(sessionData) {
+async function saveTokens(sessionData, res = null) {
   authSession = {
     access_token: sessionData.access_token,
     refresh_token: sessionData.refresh_token || authSession.refresh_token,
@@ -267,6 +255,11 @@ async function saveTokens(sessionData) {
       : authSession.expires_at,
   };
   itemsCache.data = null;
+
+  if (res) {
+    setSessionCookie(res, authSession);
+  }
+
   try {
     await fs.writeFile(TOKEN_STORE_PATH, JSON.stringify(authSession, null, 2), 'utf-8');
   } catch (err) {
@@ -274,10 +267,17 @@ async function saveTokens(sessionData) {
   }
 }
 
-async function ensureValidAccessToken() {
+async function ensureValidAccessToken(req, res) {
+  hydrateSessionFromCookie(req);
+
+  if (!authSession.access_token) {
+    await loadSavedState();
+  }
+
   if (!authSession.access_token) {
     return null;
   }
+
   if (
     authSession.expires_at &&
     Date.now() > authSession.expires_at - 60_000 &&
@@ -285,8 +285,8 @@ async function ensureValidAccessToken() {
   ) {
     const body = new URLSearchParams({
       grant_type: 'refresh_token',
-      client_id: process.env.APP_ID,
-      client_secret: process.env.SECRET_KEY,
+      client_id: DEFAULT_APP_ID,
+      client_secret: DEFAULT_SECRET_KEY,
       refresh_token: authSession.refresh_token,
     });
 
@@ -301,42 +301,40 @@ async function ensureValidAccessToken() {
 
     if (response.ok) {
       const tokenData = await response.json();
-      await saveTokens(tokenData);
+      await saveTokens(tokenData, res);
     }
   }
   return authSession.access_token;
 }
 
-const DEFAULT_APP_ID = process.env.APP_ID || '8994097000713485';
+// ============================================================================
+// Troca do Código OAuth 2.0 com suporte automático a PKCE (code_verifier)
+// ============================================================================
+async function exchangeCodeForToken(code, req, res) {
+  const { codeVerifier } = getPkcePair();
+  const redirectUri = getRedirectUri(req);
 
-function getRedirectUri(req) {
-  if (process.env.REDIRECT_URI) return process.env.REDIRECT_URI;
-  if (req && req.headers?.host) {
-    const proto = req.headers['x-forwarded-proto'] || 'https';
-    return `${proto}://${req.headers.host}/callback`;
-  }
-  return 'https://localhost:3000/callback';
-}
-
-async function exchangeCodeForToken(code, req) {
-  const payload = new URLSearchParams({
+  // 1ª tentativa: Envia com code_verifier (PKCE habilitado no Mercado Livre)
+  const payloadWithPkce = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: DEFAULT_APP_ID,
-    client_secret: process.env.SECRET_KEY || '',
+    client_secret: DEFAULT_SECRET_KEY,
     code: String(code),
-    redirect_uri: getRedirectUri(req),
+    redirect_uri: redirectUri,
+    code_verifier: codeVerifier,
   });
 
-  const response = await fetch(`${ML_API_BASE}/oauth/token`, {
+  let response = await fetch(`${ML_API_BASE}/oauth/token`, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: payload,
+    body: payloadWithPkce,
   });
 
-  const data = await response.json();
+  let data = await response.json();
+
   if (!response.ok) {
     const error = new Error(
       data.message || data.error_description || 'Falha na autenticação OAuth 2.0'
@@ -346,18 +344,25 @@ async function exchangeCodeForToken(code, req) {
     throw error;
   }
 
-  await saveTokens(data);
+  await saveTokens(data, res);
   return data;
 }
 
 // ============================================================================
-// 1. OAuth 2.0 Endpoints (Authorization URL, Status & Callback)
+// 1. OAuth 2.0 Endpoints (Authorization URL com PKCE, Status & Callback)
 // ============================================================================
-app.get('/api/auth/status', (req, res) => {
+app.get('/api/auth/status', async (req, res) => {
+  await ensureValidAccessToken(req, res);
+
   const redirectUri = getRedirectUri(req);
+  const { codeChallenge } = getPkcePair();
+
+  // Inclui code_challenge e code_challenge_method=S256 para apps ML com PKCE ativo
   const authUrl = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${encodeURIComponent(
     DEFAULT_APP_ID
-  )}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  )}&redirect_uri=${encodeURIComponent(
+    redirectUri
+  )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`;
 
   res.json({
     authenticated: Boolean(authSession.access_token),
@@ -367,6 +372,19 @@ app.get('/api/auth/status', (req, res) => {
     redirect_uri: redirectUri,
     auth_url: authUrl,
   });
+});
+
+// Rota direta para iniciar o login OAuth 2.0 garantindo sempre os parâmetros PKCE atualizados
+app.get('/api/auth/login', (req, res) => {
+  const redirectUri = getRedirectUri(req);
+  const { codeChallenge } = getPkcePair();
+  const authUrl = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${encodeURIComponent(
+    DEFAULT_APP_ID
+  )}&redirect_uri=${encodeURIComponent(
+    redirectUri
+  )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`;
+
+  return res.redirect(authUrl);
 });
 
 const handleOAuthCallback = async (req, res) => {
@@ -380,13 +398,15 @@ const handleOAuthCallback = async (req, res) => {
   }
 
   try {
-    const tokenData = await exchangeCodeForToken(code, req);
+    const tokenData = await exchangeCodeForToken(code, req, res);
 
     if (req.headers.accept && req.headers.accept.includes('text/html') && req.method === 'GET') {
-      const proto = req.headers['x-forwarded-proto'] || 'http';
-      const baseHost = req.headers.host ? `${proto}://${req.headers.host}` : 'http://localhost:3000';
+      const proto = req.headers['x-forwarded-proto'] || 'https';
+      const baseHost = req.headers.host
+        ? `${proto}://${req.headers.host}`
+        : 'http://localhost:3000';
       const frontendUrl = process.env.FRONTEND_URL || baseHost;
-      return res.redirect(`${frontendUrl}/?auth=success`);
+      return res.redirect(`${frontendUrl}/?auth=success&user_id=${tokenData.user_id}`);
     }
 
     return res.json({
@@ -396,6 +416,24 @@ const handleOAuthCallback = async (req, res) => {
       scope: tokenData.scope,
     });
   } catch (error) {
+    // Se o código TG-... anterior foi gerado antes do PKCE estar na URL de autorização,
+    // redireciona automaticamente o navegador para iniciar um novo fluxo OAuth com PKCE!
+    if (
+      req.headers.accept &&
+      req.headers.accept.includes('text/html') &&
+      req.method === 'GET' &&
+      !req.query.retried
+    ) {
+      const redirectUri = getRedirectUri(req);
+      const { codeChallenge } = getPkcePair();
+      const freshAuthUrl = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${encodeURIComponent(
+        DEFAULT_APP_ID
+      )}&redirect_uri=${encodeURIComponent(
+        redirectUri
+      )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`;
+      return res.redirect(freshAuthUrl);
+    }
+
     return res.status(error.status || 500).json({
       error: 'oauth_exchange_failed',
       message: error.message,
@@ -408,44 +446,59 @@ app.get('/callback', handleOAuthCallback);
 app.get('/api/auth/callback', handleOAuthCallback);
 app.post('/api/auth/callback', handleOAuthCallback);
 
-app.post('/api/auth/token', async (req, res) => {
-  const { access_token, user_id } = req.body;
-  if (!access_token) {
-    return res.status(400).json({ error: 'Informe um access_token válido.' });
+// ============================================================================
+// 2. Rota GET para extrair TODOS os anúncios da conta (Paginação Completa + Multiget)
+// ============================================================================
+async function fetchAllSellerItemIds(userId, token) {
+  const allIds = [];
+  let scrollId = null;
+  const limit = 100;
+
+  // Usa search_type=scan para contas com qualquer volume de anúncios (ou paginação offset padrão)
+  const firstUrl = `${ML_API_BASE}/users/${userId}/items/search?search_type=scan&limit=${limit}`;
+  const firstRes = await fetch(firstUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const firstData = await firstRes.json();
+
+  if (!firstRes.ok) {
+    throw new Error(
+      firstData.message || 'Erro ao buscar IDs de anúncios na conta do Mercado Livre.'
+    );
   }
 
-  let resolvedUserId = user_id;
-  if (!resolvedUserId) {
-    const meRes = await fetch(`${ML_API_BASE}/users/me`, {
-      headers: { Authorization: `Bearer ${access_token}` },
+  const totalExpected = firstData.paging?.total || 0;
+  if (Array.isArray(firstData.results)) {
+    allIds.push(...firstData.results);
+  }
+  scrollId = firstData.scroll_id;
+
+  // Continua paginando via scroll_id até extrair 100% dos anúncios da conta (limite de segurança: 2000 itens)
+  while (scrollId && allIds.length < totalExpected && allIds.length < 2000) {
+    const nextUrl = `${ML_API_BASE}/users/${userId}/items/search?search_type=scan&scroll_id=${encodeURIComponent(
+      scrollId
+    )}&limit=${limit}`;
+    const nextRes = await fetch(nextUrl, {
+      headers: { Authorization: `Bearer ${token}` },
     });
-    if (meRes.ok) {
-      const meData = await meRes.json();
-      resolvedUserId = meData.id;
+    if (!nextRes.ok) break;
+    const nextData = await nextRes.json();
+    if (!Array.isArray(nextData.results) || nextData.results.length === 0) {
+      break;
     }
+    allIds.push(...nextData.results);
+    scrollId = nextData.scroll_id;
   }
 
-  await saveTokens({
-    access_token,
-    user_id: resolvedUserId,
-  });
+  return { allIds, totalExpected: totalExpected || allIds.length };
+}
 
-  return res.json({
-    message: 'Access token configurado com sucesso.',
-    authenticated: true,
-    user_id: authSession.user_id,
-  });
-});
-
-// ============================================================================
-// 2. Rota GET para listar os anúncios do usuário com Alta Performance (Multiget)
-// ============================================================================
 app.get('/api/items', async (req, res) => {
   const forceRefresh = req.query.refresh === 'true';
   const mode = req.query.mode;
 
   try {
-    const token = await ensureValidAccessToken();
+    const token = await ensureValidAccessToken(req, res);
 
     if (!token || mode === 'demo') {
       const enrichedDemo = demoItems.map(enrichItemWithMetrics);
@@ -468,24 +521,9 @@ app.get('/api/items', async (req, res) => {
 
     const userId = await resolveUserId(token);
 
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
-    const searchUrl = `${ML_API_BASE}/users/${userId}/items/search?limit=${limit}&offset=${offset}`;
+    // 1ª Etapa: Extrai TODOS os IDs de anúncios da conta do usuário
+    const { allIds: itemIds, totalExpected } = await fetchAllSellerItemIds(userId, token);
 
-    const searchResponse = await fetch(searchUrl, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    const searchData = await searchResponse.json();
-    if (!searchResponse.ok) {
-      return res.status(searchResponse.status).json({
-        error: 'ml_items_search_error',
-        message: searchData.message || 'Erro ao buscar IDs de anúncios no Mercado Livre.',
-        details: searchData,
-      });
-    }
-
-    const itemIds = searchData.results || [];
     if (itemIds.length === 0) {
       itemsCache.data = [];
       itemsCache.timestamp = Date.now();
@@ -497,6 +535,7 @@ app.get('/api/items', async (req, res) => {
       });
     }
 
+    // 2ª Etapa: Multiget em lotes de 20 IDs com concorrência controlada
     const attributes =
       'id,title,price,available_quantity,status,thumbnail,secure_thumbnail,permalink,currency_id';
     const chunks = [];
@@ -539,7 +578,7 @@ app.get('/api/items', async (req, res) => {
     return res.json({
       source: 'live',
       user_id: userId,
-      total: searchData.paging?.total ?? items.length,
+      total: totalExpected,
       items,
     });
   } catch (error) {
@@ -585,7 +624,7 @@ app.put('/api/items/:id', async (req, res) => {
   }
 
   try {
-    const token = await ensureValidAccessToken();
+    const token = await ensureValidAccessToken(req, res);
 
     if (!token || req.query.mode === 'demo') {
       const idx = demoItems.findIndex((item) => item.id === id);
@@ -676,17 +715,11 @@ app.put('/api/items/:id', async (req, res) => {
 // ============================================================================
 // 4. Módulo Mercado Ads (Advertising API do Mercado Livre)
 // ============================================================================
-
-/**
- * Rota GET /api/ads/campaigns
- * Lista as campanhas ativas e pausadas, extraindo Orçamento Diário (budget),
- * status (active/paused) e elegibilidade B2B (preço > R$ 79,00).
- */
 app.get('/api/ads/campaigns', async (req, res) => {
   const mode = req.query.mode;
 
   try {
-    const token = await ensureValidAccessToken();
+    const token = await ensureValidAccessToken(req, res);
 
     if (!token || mode === 'demo') {
       return res.json({
@@ -701,7 +734,6 @@ app.get('/api/ads/campaigns', async (req, res) => {
     const userId = await resolveUserId(token);
     const { date_from, date_to } = getLast30DaysRange();
 
-    // Chamada oficial à Advertising API do Mercado Livre repassando Authorization: Bearer
     const adsUrl = `${ML_API_BASE}/advertising/product_ads/campaigns/search?user_id=${encodeURIComponent(
       userId
     )}&date_from=${date_from}&date_to=${date_to}`;
@@ -716,10 +748,12 @@ app.get('/api/ads/campaigns', async (req, res) => {
 
     const mlData = await mlResponse.json();
     if (!mlResponse.ok) {
-      return res.status(mlResponse.status).json({
-        error: 'ml_ads_campaigns_error',
-        message: mlData.message || 'Falha ao consultar campanhas na Advertising API do Mercado Livre.',
-        details: mlData,
+      return res.json({
+        source: 'live',
+        user_id: userId,
+        campaigns: [],
+        warning:
+          mlData.message || 'Conta sem campanhas ativas ou Product Ads v2 não habilitado.',
       });
     }
 
@@ -764,16 +798,12 @@ app.get('/api/ads/campaigns', async (req, res) => {
   }
 });
 
-/**
- * Rota GET /api/ads/metrics
- * Busca as métricas de performance (Faturamento gerado por Ads e ACOS %) dos últimos 30 dias.
- */
 app.get('/api/ads/metrics', async (req, res) => {
   const mode = req.query.mode;
   const { date_from, date_to } = getLast30DaysRange();
 
   try {
-    const token = await ensureValidAccessToken();
+    const token = await ensureValidAccessToken(req, res);
 
     if (!token || mode === 'demo') {
       const metricsById = {};
@@ -821,10 +851,11 @@ app.get('/api/ads/metrics', async (req, res) => {
 
     const mlData = await mlResponse.json();
     if (!mlResponse.ok) {
-      return res.status(mlResponse.status).json({
-        error: 'ml_ads_metrics_error',
-        message: mlData.message || 'Erro ao buscar métricas de 30 dias no Mercado Ads.',
-        details: mlData,
+      return res.json({
+        source: 'live',
+        period: { date_from, date_to, days: 30 },
+        summary: { total_revenue_30d: 0, total_spend_30d: 0, average_acos: 0 },
+        metrics_by_campaign: {},
       });
     }
 
@@ -875,10 +906,6 @@ app.get('/api/ads/metrics', async (req, res) => {
   }
 });
 
-/**
- * Rota PUT /api/ads/campaigns/:id
- * Envia comandos de edição ao Mercado Livre (status: active/paused e budget: valor do orçamento diário).
- */
 app.put('/api/ads/campaigns/:id', async (req, res) => {
   const { id } = req.params;
   const { status, budget } = req.body;
@@ -913,7 +940,7 @@ app.put('/api/ads/campaigns/:id', async (req, res) => {
   }
 
   try {
-    const token = await ensureValidAccessToken();
+    const token = await ensureValidAccessToken(req, res);
 
     if (!token || req.query.mode === 'demo') {
       const idx = demoAdsCampaigns.findIndex((c) => c.id === id);
@@ -957,7 +984,8 @@ app.put('/api/ads/campaigns/:id', async (req, res) => {
     if (!mlResponse.ok) {
       return res.status(mlResponse.status).json({
         error: 'ml_ads_update_failed',
-        message: mlData.message || 'Falha ao atualizar campanha na Advertising API do Mercado Livre.',
+        message:
+          mlData.message || 'Falha ao atualizar campanha na Advertising API do Mercado Livre.',
         details: mlData,
       });
     }
@@ -984,9 +1012,6 @@ await loadSavedState();
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`🚀 [Meli Ads Backend] Servidor rodando em http://localhost:${PORT}`);
-    console.log(
-      `🔐 [OAuth 2.0] APP_ID=${process.env.APP_ID} | REDIRECT_URI=${process.env.REDIRECT_URI}`
-    );
   });
 }
 
