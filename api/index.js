@@ -72,6 +72,53 @@ app.use(express.json());
 // ============================================================================
 export const COPILOT_SYSTEM_PROMPT = `Você é o Copiloto de Vendas B2B da Pacific Flowers, especialista no algoritmo e nas políticas de catálogo do Mercado Livre. Antes de executar qualquer Function Calling (atualizar_preco, otimizar_titulo, criar_anuncio), você deve obrigatoriamente validar a ação contra as seguintes regras da plataforma:
 
+CONTEXTO DA EMPRESA:
+Você representa a Pacific Flowers, uma fabricante e distribuidora focada no público B2B (lojistas, papelarias e comércio). O objetivo no Mercado Livre é vender em ATACADO (Kits e Caixas fechadas) para elevar o ticket médio acima de R$ 79,00.
+
+CATÁLOGO OFICIAL DE PRODUTOS (NUNCA invente itens fora desta lista):
+
+Linha Office e Financeiro:
+
+Talões de Pedido: 105x150mm, 150x210mm e 300x210mm (50 folhas).
+
+Comandas: 75x105mm (50 folhas).
+
+Recibos e Vales: Recibo comercial (150x105mm) e Vales (105x75mm), com 50 folhas.
+
+Sinalização Comercial (Placas em Poliestireno/PS com impressão UV):
+
+15x20cm: Banheiro, proibido fumar, sorria você está sendo filmado.
+
+10x30cm: Saída de emergência, volto já, proibido capacete.
+
+7x30cm: Entrada, saída, caixa, sanitários.
+
+20x30cm: Alugo, vendo, cuidado cão bravo, extintores.
+
+Envelopes e Papelaria Promocional:
+
+Envelopes Kraft Natural: 80g e 90g (formatos de 162x229mm até 260x360mm). Vendidos em caixas de 100, 250 ou pacotes de 10.
+
+Splashes de Oferta: Solapa, Combo e Granel em papel 220g (Tamanhos P, M e G).
+
+Cartazes de Oferta: De 15x20cm até 43x63cm.
+
+Linha Escolar e Educativa:
+
+Cadernos/Cadernetas: Capa flexível 250g (48 ou 96 folhas).
+
+Giz de Cera: Standard (6/12 cores, 26g/52g), Gizão (6/12 cores, 58g/112g) e Meu 1° Giz (185g/344g).
+
+Dinheirinho/Dinheirão Educativo: Pacotes com 70 ou 15 notas.
+
+Jogos e Atividades: Mercado Imobiliário, Damas, Ludo, Trilha, Jogo da Memória, Quebra-Cabeça, Caligrafia e Kits de Desenho.
+
+FÓRMULA OBRIGATÓRIA PARA CRIAÇÃO DE TÍTULOS (Máx 60 caracteres):
+[Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso].
+Exemplo Correto: Kit 50 Talões De Pedido 105x150mm Comércio
+Exemplo Correto: Caixa 250 Envelopes Kraft Natural 162x229mm 90g
+Exemplo Errado (Proibido): Talão de Pedido Barato Pacific Flowers (Falta quantidade, tamanho e tem palavra promocional).
+
 REGRAS DE TÍTULO (SEO e Conformidade):
 
 Limite absoluto: 60 caracteres (com espaços).
@@ -123,7 +170,7 @@ export const COPILOT_TOOLS = [
         palavra_chave: {
           type: 'string',
           description:
-            'Palavra-chave do produto ou kit B2B para pesquisar os 5 primeiros colocados no Mercado Livre (ex: Kit Caixas Presente Floral, Talão Pedido, Bobina Papel Seda).',
+            'Palavra-chave do produto ou kit B2B para pesquisar os 5 primeiros colocados no Mercado Livre (ex: Kit 50 Talões De Pedido 105x150mm, Caixa 250 Envelopes Kraft Natural).',
         },
       },
       required: ['palavra_chave'],
@@ -173,7 +220,7 @@ export const COPILOT_TOOLS = [
     type: 'function',
     name: 'otimizar_titulo_b2b',
     description:
-      'Prepara a otimização do título (title) de um anúncio B2B no Mercado Livre para aprovação humana no Modal de Edição, respeitando estritamente o limite de 60 caracteres, sem termos promocionais ou símbolos proibidos, abrindo com a quantidade em kits B2B.',
+      'Prepara a otimização do título (title) de um anúncio B2B no Mercado Livre para aprovação humana no Modal de Edição, respeitando estritamente o limite de 60 caracteres e a fórmula [Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso].',
     parameters: {
       type: 'object',
       properties: {
@@ -184,7 +231,7 @@ export const COPILOT_TOOLS = [
         title: {
           type: 'string',
           description:
-            'Novo título auditado (máximo absoluto de 60 caracteres, estrutura [Quantidade/Kit] + [Produto] + [Marca] + [Modelo] + [Especificações]).',
+            'Novo título auditado (máximo absoluto de 60 caracteres, fórmula [Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso]).',
         },
       },
       required: ['item_id', 'title'],
@@ -205,8 +252,14 @@ export function validateTitleCompliance(title) {
     );
   }
 
-  const forbiddenPromoRegex =
-    /\b(oferta|frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|desconto|imperd[ií]vel)\b/i;
+  // Permite "Cartazes de Oferta" / "Splashes de Oferta" quando parte do nome oficial do produto, mas bloqueia adjetivos promocionais proibidos
+  const isOfficialCatalogOfferItem = /\b(cartaz(?:es)?|splash(?:es)?)\s+de\s+oferta\b/i.test(
+    clean
+  );
+  const forbiddenPromoRegex = isOfficialCatalogOfferItem
+    ? /\b(frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|desconto|imperd[ií]vel|barat[oa]s?)\b/i
+    : /\b(oferta|frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|desconto|imperd[ií]vel|barat[oa]s?)\b/i;
+
   const promoMatch = clean.match(forbiddenPromoRegex);
   if (promoMatch) {
     violations.push(
@@ -224,17 +277,28 @@ export function validateTitleCompliance(title) {
     violations.push('Inclusão proibida de dados de contato, telefone ou links no título.');
   }
 
-  let suggested = clean
-    .replace(forbiddenPromoRegex, '')
-    .replace(/[!*#@$%&]+/g, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-
-  if (!/Pacific Flowers/i.test(suggested) && suggested.length <= 42) {
-    suggested = `${suggested} Pacific Flowers`.trim();
+  // Verifica se o título inicia com a quantidade do Kit/Caixa/Pacote conforme Fórmula Obrigatória B2B
+  if (!/^(kit|caixa|pacote|\d+\s*un|\d+\s*p[cç]s|\d+\b)/i.test(clean)) {
+    violations.push(
+      'Falta a Quantidade do Kit abrindo o título conforme a Fórmula Obrigatória: [Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso].'
+    );
   }
-  if (suggested.length > 60) {
-    suggested = suggested.slice(0, 60).trim();
+
+  let suggested = 'Kit 50 Talões De Pedido 105x150mm Comércio';
+  if (/envelope|kraft/i.test(clean)) {
+    suggested = 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g';
+  } else if (/caderno|caderneta/i.test(clean)) {
+    suggested = 'Kit 20 Cadernos Capa Flexível 250g 96 Folhas Escolar';
+  } else if (/placa|sinaliza/i.test(clean)) {
+    suggested = 'Kit 12 Placas Sinalização PS UV 15x20cm Comércio';
+  } else if (/cartaz/i.test(clean)) {
+    suggested = 'Kit 100 Cartazes De Oferta 15x20cm Comércio';
+  } else if (/comanda/i.test(clean)) {
+    suggested = 'Kit 50 Comandas 75x105mm 50 Folhas Comércio';
+  } else if (/recibo|vale/i.test(clean)) {
+    suggested = 'Kit 50 Recibos Comerciais 150x105mm 50 Folhas';
+  } else if (/dinheirinho|dinheir[aã]o/i.test(clean)) {
+    suggested = 'Kit 20 Pacotes Dinheirinho Educativo 70 Notas Escolar';
   }
 
   return {
@@ -746,76 +810,76 @@ async function executeMeliItemUpdate(itemId, updateFields, token, res = null) {
 // Radar de Concorrência: Busca Pública no Mercado Livre (/sites/MLB/search)
 // ============================================================================
 function buildBenchmarkCompetitors(keyword) {
-  const cleanKw = String(keyword || 'Kit Papelaria Atacado B2B').trim();
+  const cleanKw = String(keyword || 'Kit Talões De Pedido 105x150mm Comércio').trim();
   const slug = cleanKw
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-');
 
-  if (/bobina|seda|papel/i.test(cleanKw)) {
+  if (/envelope|kraft/i.test(cleanKw)) {
     return [
       {
-        title: 'Kit 5 Bobinas Papel Seda Estampado 60cm Atacado Floricultura',
-        price: 128.9,
+        title: 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g Escritório',
+        price: 118.9,
         link: `https://produto.mercadolivre.com.br/MLB-3819201921-${slug}-1`,
         free_shipping: true,
       },
       {
-        title: 'Kit 4 Bobinas Papel Seda Presente 40x60cm Uso Comercial',
-        price: 114.5,
+        title: 'Caixa 250 Envelopes Kraft Natural 200x280mm 90g Envios',
+        price: 134.5,
         link: `https://produto.mercadolivre.com.br/MLB-3819201922-${slug}-2`,
         free_shipping: true,
       },
       {
-        title: 'Bobina Papel Seda Floral 60cm 5kg Embalagem Atacado',
-        price: 98.0,
+        title: 'Caixa 100 Envelopes Kraft Natural 260x360mm 90g Documentos',
+        price: 96.0,
         link: `https://produto.mercadolivre.com.br/MLB-3819201923-${slug}-3`,
         free_shipping: true,
       },
       {
-        title: 'Kit 500 Folhas Papel Seda Botânico 50x70cm Loja Presentes',
+        title: 'Caixa 250 Envelopes Kraft Natural 162x229mm 80g Comércio',
         price: 89.9,
         link: `https://produto.mercadolivre.com.br/MLB-3819201924-${slug}-4`,
         free_shipping: true,
       },
       {
-        title: 'Rolo Bobina Papel Seda Liso 60cm Unitário Papelaria',
-        price: 64.9,
+        title: 'Pacote 10 Envelopes Kraft Natural 260x360mm 90g Papelaria',
+        price: 29.9,
         link: `https://produto.mercadolivre.com.br/MLB-3819201925-${slug}-5`,
         free_shipping: false,
       },
     ];
   }
 
-  if (/tal[aã]o|pedido|bloco|comanda/i.test(cleanKw)) {
+  if (/tal[aã]o|pedido|bloco|comanda|recibo|vale/i.test(cleanKw)) {
     return [
       {
-        title: 'Kit 50 Talões De Pedido Comanda 10x15cm 2 Vias Atacado',
+        title: 'Kit 50 Talões De Pedido 105x150mm 50 Folhas Comércio',
         price: 109.9,
         link: `https://produto.mercadolivre.com.br/MLB-3910293811-${slug}-1`,
         free_shipping: true,
       },
       {
-        title: 'Kit 40 Blocos Pedido Orçamento 10x15cm Papel Sulfite 90g',
+        title: 'Kit 40 Talões De Pedido 150x210mm 50 Folhas Atacado',
         price: 94.9,
         link: `https://produto.mercadolivre.com.br/MLB-3910293812-${slug}-2`,
         free_shipping: true,
       },
       {
-        title: 'Caixa 50 Talões Pedido Personalizado Comércio 10x15cm',
+        title: 'Caixa 50 Comandas 75x105mm 50 Folhas Restaurante',
         price: 118.0,
         link: `https://produto.mercadolivre.com.br/MLB-3910293813-${slug}-3`,
         free_shipping: true,
       },
       {
-        title: 'Kit 30 Talões Controle De Vendas 1 Via 10x15cm Atacado',
+        title: 'Kit 30 Recibos Comerciais 150x105mm 50 Folhas Loja',
         price: 82.5,
         link: `https://produto.mercadolivre.com.br/MLB-3910293814-${slug}-4`,
         free_shipping: true,
       },
       {
-        title: 'Kit 10 Talões De Pedido Pequeno 10x15cm Papelaria',
+        title: 'Kit 10 Talões De Pedido 105x150mm 50 Folhas Varejo',
         price: 42.9,
         link: `https://produto.mercadolivre.com.br/MLB-3910293815-${slug}-5`,
         free_shipping: false,
@@ -825,31 +889,31 @@ function buildBenchmarkCompetitors(keyword) {
 
   return [
     {
-      title: `Kit 50 ${cleanKw} 25x25cm Rígida Atacado`,
+      title: 'Kit 50 Talões De Pedido 105x150mm 50 Folhas Comércio',
       price: 104.9,
       link: `https://produto.mercadolivre.com.br/MLB-4102938471-${slug}-1`,
       free_shipping: true,
     },
     {
-      title: `Kit 40 ${cleanKw} Decorada Floricultura B2B`,
+      title: 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g Escritório',
       price: 96.5,
       link: `https://produto.mercadolivre.com.br/MLB-4102938472-${slug}-2`,
       free_shipping: true,
     },
     {
-      title: `Caixa Com 50 ${cleanKw} Premium Cartonagem`,
+      title: 'Kit 20 Placas Sinalização PS UV 15x20cm Comércio',
       price: 112.0,
       link: `https://produto.mercadolivre.com.br/MLB-4102938473-${slug}-3`,
       free_shipping: true,
     },
     {
-      title: `Kit 30 ${cleanKw} Embalagem Presente Atacado`,
+      title: 'Kit 100 Cartazes De Oferta 30x40cm 220g Varejo',
       price: 88.9,
       link: `https://produto.mercadolivre.com.br/MLB-4102938474-${slug}-4`,
       free_shipping: true,
     },
     {
-      title: `Kit 15 ${cleanKw} Avulso Varejo`,
+      title: 'Kit 10 Cadernos Capa Flexível 250g 96 Folhas Escolar',
       price: 59.9,
       link: `https://produto.mercadolivre.com.br/MLB-4102938475-${slug}-5`,
       free_shipping: false,
@@ -1214,23 +1278,27 @@ app.post('/api/chat', async (req, res) => {
     });
   }
 
-  // Extrai palavra-chave para o Radar de Concorrência
+  // Extrai palavra-chave para o Radar de Concorrência (Foco no Catálogo Oficial Pacific Flowers)
   const titleQuoteMatch = text.match(/["'“”]([^"'“”]{3,120})["'“”]/);
-  let extractedKeyword = 'Kit Caixas Presente Floral';
-  if (/bobina|seda/i.test(text) || itemId === 'MLB4019283741') {
-    extractedKeyword = 'Kit Bobina Papel Seda Estampado';
-  } else if (/tal[aã]o|pedido|bloco/i.test(text)) {
-    extractedKeyword = 'Kit 50 Talões Pedido 10x15cm';
+  let extractedKeyword = 'Kit 50 Talões De Pedido 105x150mm Comércio';
+  if (/envelope|kraft/i.test(text) || itemId === 'MLB4019283741') {
+    extractedKeyword = 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g';
+  } else if (/placa|sinaliza[cç][aã]o|poliestireno|\bps\b/i.test(text)) {
+    extractedKeyword = 'Kit 20 Placas Sinalização PS UV 15x20cm Comércio';
+  } else if (/giz|caderno|escolar|dinheirinho|jogo/i.test(text)) {
+    extractedKeyword = 'Kit 12 Caixas Giz De Cera 12 Cores 52g Escolar';
+  } else if (/tal[aã]o|pedido|bloco|comanda|recibo|vale/i.test(text)) {
+    extractedKeyword = 'Kit 50 Talões De Pedido 105x150mm Comércio';
   } else if (titleQuoteMatch) {
     extractedKeyword = titleQuoteMatch[1]
-      .replace(/\b(oferta|frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o)\b/gi, '')
+      .replace(/\b(frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|barato)\b/gi, '')
       .replace(/[!*#@$%&]+/g, '')
       .trim()
-      .slice(0, 45);
+      .slice(0, 48);
   }
 
   const isTitleOrCompetitorOrMarginRequest =
-    /t[ií]tulo|otimiz|renome|concorr[eê]n|radar|pesquis|suger|margem|kit|an[uú]ncio/i.test(
+    /t[ií]tulo|otimiz|renome|concorr[eê]n|radar|pesquis|suger|margem|kit|caixa|an[uú]ncio/i.test(
       text
     );
 
@@ -1275,11 +1343,13 @@ app.post('/api/chat', async (req, res) => {
   if (/t[ií]tulo|otimiz|renome|concorr[eê]n|radar|suger/i.test(text)) {
     const rawCandidate = titleQuoteMatch
       ? titleQuoteMatch[1]
-      : /bobina|seda/i.test(text) || itemId === 'MLB4019283741'
-      ? 'Kit 5 Bobinas Papel Seda Botânico 60cm Pacific Flowers'
-      : /tal[aã]o|pedido/i.test(text)
-      ? 'Kit 50 Talões Pedido 10x15cm Pacific Flowers'
-      : 'Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers';
+      : /envelope|kraft/i.test(text) || itemId === 'MLB4019283741'
+      ? 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g'
+      : /placa|sinaliza[cç][aã]o|poliestireno|\bps\b/i.test(text)
+      ? 'Kit 20 Placas Sinalização PS UV 15x20cm Comércio'
+      : /giz|caderno|escolar/i.test(text)
+      ? 'Kit 12 Caixas Giz De Cera 12 Cores 52g Escolar'
+      : 'Kit 50 Talões De Pedido 105x150mm Comércio';
 
     const audit = validateTitleCompliance(rawCandidate);
 

@@ -1430,11 +1430,11 @@ function DashboardContent() {
                     null,
                     `Pesquisar concorrentes e otimizar título B2B do anúncio ${
                       items[0]?.id || 'MLB3948102938'
-                    } para "Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers"`
+                    } para "Kit 50 Talões De Pedido 105x150mm Comércio"`
                   )
                 }
               >
-                🔍 1. Acionar Radar Top 5 + Sugerir Kit B2B (Abre Modal)
+                🔍 1. Sugerir Kit 50 Talões 105x150mm (Abre Modal)
               </button>
               <button
                 type="button"
@@ -1444,11 +1444,11 @@ function DashboardContent() {
                     null,
                     `Otimizar título do ${
                       items[0]?.id || 'MLB3948102938'
-                    } para "PROMOÇÃO!!! Kit 50 Caixas Presente Floral Frete Grátis Pacific Flowers"`
+                    } para "Talão de Pedido Barato Pacific Flowers"`
                   )
                 }
               >
-                2. Testar Bloqueio de Violação (Promoção + &gt;60 chars)
+                2. Testar Bloqueio: &ldquo;Talão de Pedido Barato Pacific Flowers&rdquo;
               </button>
               <button
                 type="button"
@@ -1456,11 +1456,13 @@ function DashboardContent() {
                 onClick={() =>
                   handleSendChatMessage(
                     null,
-                    `Pesquisar concorrentes para "Kit 50 Talões Pedido 10x15cm" e sugerir título B2B`
+                    `Pesquisar concorrentes e otimizar anúncio ${
+                      items[0]?.id || 'MLB3948102938'
+                    } para "Caixa 250 Envelopes Kraft Natural 162x229mm 90g"`
                   )
                 }
               >
-                3. Radar Concorrência: Kit 50 Talões Pedido
+                3. Sugerir Caixa 250 Envelopes Kraft 90g
               </button>
             </div>
 
@@ -1708,11 +1710,11 @@ function DashboardContent() {
                       null,
                       `Pesquisar concorrentes e otimizar título do ${
                         items[0]?.id || 'MLB3948102938'
-                      } para "Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers"`
+                      } para "Kit 50 Talões De Pedido 105x150mm Comércio"`
                     )
                   }
                 >
-                  🔍 Radar Top 5 + Otimizar Kit
+                  🔍 Radar Top 5 + Kit 50 Talões
                 </button>
                 <button
                   type="button"
