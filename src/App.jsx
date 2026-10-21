@@ -175,6 +175,229 @@ function ToastItem({ toast, onDismiss }) {
   );
 }
 
+// ============================================================================
+// Renderizador Markdown Estilo Google Gemini (Headings, Callouts, Code, Listas)
+// ============================================================================
+function renderInlineGemini(lineText) {
+  if (!lineText) return null;
+  const parts = String(lineText).split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*\n]+\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={idx} style={{ color: '#f8fafc', fontWeight: 600 }}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code
+          key={idx}
+          style={{
+            backgroundColor: 'rgba(139, 92, 246, 0.16)',
+            border: '1px solid rgba(139, 92, 246, 0.32)',
+            color: '#ddd6fe',
+            padding: '0.1rem 0.38rem',
+            borderRadius: '5px',
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: '0.8em',
+          }}
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+      return (
+        <em key={idx} style={{ color: '#cbd5e1' }}>
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    return part;
+  });
+}
+
+function GeminiMarkdown({ content, onCopyText }) {
+  const raw = String(content || '');
+  const segments = raw.split(/(```[\s\S]*?```)/g);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      {segments.map((segment, sIdx) => {
+        if (segment.startsWith('```') && segment.endsWith('```')) {
+          const codeBody = segment.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim();
+          return (
+            <div
+              key={sIdx}
+              style={{
+                backgroundColor: '#09090d',
+                border: '1px solid rgba(139, 92, 246, 0.35)',
+                borderRadius: '8px',
+                padding: '0.75rem',
+                marginTop: '0.25rem',
+                marginBottom: '0.25rem',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '0.45rem',
+                  paddingBottom: '0.35rem',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  fontSize: '0.72rem',
+                  color: '#a78bfa',
+                }}
+              >
+                <span>📄 Texto Puro Auditado (Padrão Mercado Livre)</span>
+                {onCopyText && (
+                  <button
+                    type="button"
+                    className="copilot-quick-chip"
+                    style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}
+                    onClick={() => onCopyText(codeBody)}
+                  >
+                    📋 Copiar Texto
+                  </button>
+                )}
+              </div>
+              <pre
+                style={{
+                  margin: 0,
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: '0.78rem',
+                  color: '#e2e8f0',
+                  lineHeight: 1.5,
+                }}
+              >
+                {codeBody}
+              </pre>
+            </div>
+          );
+        }
+
+        const lines = segment.split('\n');
+        return lines.map((line, lIdx) => {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            return <div key={`${sIdx}-${lIdx}`} style={{ height: '0.2rem' }} />;
+          }
+          if (trimmed === '---') {
+            return (
+              <hr
+                key={`${sIdx}-${lIdx}`}
+                style={{
+                  border: 'none',
+                  borderTop: '1px solid var(--border-subtle)',
+                  margin: '0.35rem 0',
+                }}
+              />
+            );
+          }
+          if (trimmed.startsWith('### ')) {
+            return (
+              <h3
+                key={`${sIdx}-${lIdx}`}
+                style={{
+                  fontSize: '0.93rem',
+                  fontWeight: 700,
+                  color: '#c4b5fd',
+                  margin: '0.35rem 0 0.15rem 0',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                {renderInlineGemini(trimmed.slice(4))}
+              </h3>
+            );
+          }
+          if (trimmed.startsWith('#### ')) {
+            return (
+              <h4
+                key={`${sIdx}-${lIdx}`}
+                style={{
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  color: '#93c5fd',
+                  margin: '0.25rem 0 0.1rem 0',
+                }}
+              >
+                {renderInlineGemini(trimmed.slice(5))}
+              </h4>
+            );
+          }
+          if (trimmed.startsWith('> ')) {
+            return (
+              <div
+                key={`${sIdx}-${lIdx}`}
+                style={{
+                  borderLeft: '3px solid #8b5cf6',
+                  backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                  padding: '0.55rem 0.75rem',
+                  borderRadius: '0 8px 8px 0',
+                  fontSize: '0.82rem',
+                  color: '#e2e8f0',
+                }}
+              >
+                {renderInlineGemini(trimmed.slice(2))}
+              </div>
+            );
+          }
+          if (/^[-*]\s+/.test(trimmed)) {
+            return (
+              <div
+                key={`${sIdx}-${lIdx}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.45rem',
+                  paddingLeft: line.startsWith('  ') ? '1rem' : '0.2rem',
+                }}
+              >
+                <span style={{ color: '#a78bfa', fontWeight: 700 }}>•</span>
+                <span style={{ flex: 1 }}>
+                  {renderInlineGemini(trimmed.replace(/^[-*]\s+/, ''))}
+                </span>
+              </div>
+            );
+          }
+          if (/^\d+\.\s+/.test(trimmed)) {
+            const numMatch = trimmed.match(/^(\d+\.)\s+(.*)$/);
+            return (
+              <div
+                key={`${sIdx}-${lIdx}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.45rem',
+                  paddingLeft: '0.2rem',
+                }}
+              >
+                <span
+                  className="mono-value"
+                  style={{ color: '#38bdf8', fontWeight: 600, fontSize: '0.8em' }}
+                >
+                  {numMatch ? numMatch[1] : '•'}
+                </span>
+                <span style={{ flex: 1 }}>
+                  {renderInlineGemini(numMatch ? numMatch[2] : trimmed)}
+                </span>
+              </div>
+            );
+          }
+          return (
+            <div key={`${sIdx}-${lIdx}`} style={{ lineHeight: 1.55 }}>
+              {renderInlineGemini(line)}
+            </div>
+          );
+        });
+      })}
+    </div>
+  );
+}
+
 function DashboardContent() {
   // Controle de Navegação da Sidebar ('ads_items' | 'mercado_ads' | 'copilot_chat')
   const [activeView, setActiveView] = useState('ads_items');
@@ -234,12 +457,18 @@ function DashboardContent() {
   // Pilar 3: Estado de loading individual por campanha ('status' | 'budget') para evitar múltiplos cliques
   const [campaignLoadingMap, setCampaignLoadingMap] = useState({});
 
-  // Pilar 4: Estados do Copiloto B2B + Widget no Canto Inferior Direito
+  // Pilar 4: Estados do Copiloto B2B + Widget no Canto Inferior Direito (Estilo Gemini 3.8 Flash)
   const [isFloatingChatOpen, setIsFloatingChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([
     {
       role: 'assistant',
-      text: 'Olá! Sou o Copiloto de Vendas B2B da Pacific Flowers (Modo Human-in-the-Loop ativo). Quando você pedir para otimizar um título ou atualizar preço/estoque, validarei as políticas do Mercado Livre e abrirei automaticamente o Modal de Edição preenchido para você revisar e clicar em Salvar.',
+      text: `Olá! Sou o **Copiloto de Vendas B2B da Pacific Flowers** (motor **Gemini 3.8 Flash**), especialista no catálogo oficial, precificação de atacado e auditoria do **Mercado Livre**.
+
+### ✨ O que posso fazer por você agora:
+- 🔍 **Radar de Concorrência Top 5:** Consulto os 5 primeiros colocados do Mercado Livre em tempo real antes de sugerir títulos ou preços.
+- 🏷️ **Fórmula Obrigatória de Títulos (Máx. 60 chars):** \`[Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso]\`.
+- 💰 **Simulador do Gatilho de R$ 79,00:** Calculo comissões (16%), eliminação da taxa fixa de R$ 6,00 e absorção lucrativa do Frete Grátis (R$ 21,00).
+- ✍️ **Descrições em Texto Puro & Auditoria de Fotos:** Gero descrições técnicas sem HTML e audito fotos de capa (\`RGB 255, 255, 255\`).`,
       tools: [],
     },
   ]);
@@ -1413,15 +1642,18 @@ function DashboardContent() {
             <header className="topbar">
               <div>
                 <h1 className="page-title">
-                  Copiloto B2B & Radar de Concorrência (Human-in-the-Loop)
+                  ✦ Gemini 3.8 Flash — Copiloto B2B & Radar de Concorrência
                 </h1>
                 <p className="page-subtitle">
-                  A IA consulta os 5 primeiros colocados do Mercado Livre em tempo real (<code>pesquisar_concorrentes</code>), analisa preços/títulos e abre o Modal de Edição preenchido para aprovação.
+                  Respostas analíticas no padrão Google Gemini com consulta aos 5 primeiros colocados do Mercado Livre (<code>pesquisar_concorrentes</code>), banco de dados oficial do catálogo Pacific Flowers e aprovação Human-in-the-Loop.
                 </p>
               </div>
             </header>
 
-            <div className="toolbar" style={{ justifyContent: 'flex-start', gap: '0.6rem' }}>
+            <div
+              className="toolbar"
+              style={{ justifyContent: 'flex-start', gap: '0.55rem', flexWrap: 'wrap' }}
+            >
               <button
                 type="button"
                 className="btn-primary btn-sm"
@@ -1434,21 +1666,7 @@ function DashboardContent() {
                   )
                 }
               >
-                🔍 1. Sugerir Kit 50 Talões 105x150mm (Abre Modal)
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() =>
-                  handleSendChatMessage(
-                    null,
-                    `Otimizar título do ${
-                      items[0]?.id || 'MLB3948102938'
-                    } para "Talão de Pedido Barato Pacific Flowers"`
-                  )
-                }
-              >
-                2. Testar Bloqueio: &ldquo;Talão de Pedido Barato Pacific Flowers&rdquo;
+                🔍 1. Kit 50 Talões 105x150mm (Abre Modal)
               </button>
               <button
                 type="button"
@@ -1462,7 +1680,57 @@ function DashboardContent() {
                   )
                 }
               >
-                3. Sugerir Caixa 250 Envelopes Kraft 90g
+                📦 2. Caixa 250 Envelopes Kraft 90g
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  handleSendChatMessage(
+                    null,
+                    `Quero vender placas de proibido fumar e banheiro 15x20cm em kit atacado, otimize o anúncio`
+                  )
+                }
+              >
+                ⚠️ 3. Kit Placas Sinalização PS UV 15x20cm
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  handleSendChatMessage(
+                    null,
+                    `Otimizar título do ${
+                      items[0]?.id || 'MLB3948102938'
+                    } para "Talão de Pedido Barato Pacific Flowers"`
+                  )
+                }
+              >
+                🛡️ 4. Testar Bloqueio: &ldquo;Talão Barato&rdquo;
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  handleSendChatMessage(
+                    null,
+                    `Crie uma descrição técnica para a Caixa de 250 Envelopes Kraft 90g`
+                  )
+                }
+              >
+                ✍️ 5. Gerar Descrição Texto Puro
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  handleSendChatMessage(
+                    null,
+                    `Quais produtos a Pacific Flowers vende no catálogo oficial?`
+                  )
+                }
+              >
+                📚 6. Ver Catálogo Oficial B2B
               </button>
             </div>
 
@@ -1473,7 +1741,7 @@ function DashboardContent() {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '1rem',
-                minHeight: '460px',
+                minHeight: '490px',
               }}
             >
               <div
@@ -1481,8 +1749,8 @@ function DashboardContent() {
                   flex: 1,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '0.85rem',
-                  maxHeight: '440px',
+                  gap: '0.95rem',
+                  maxHeight: '480px',
                   overflowY: 'auto',
                   paddingRight: '0.5rem',
                 }}
@@ -1492,7 +1760,7 @@ function DashboardContent() {
                     key={i}
                     style={{
                       alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                      maxWidth: '88%',
+                      maxWidth: '90%',
                       backgroundColor:
                         msg.role === 'user'
                           ? 'rgba(139, 92, 246, 0.2)'
@@ -1500,16 +1768,49 @@ function DashboardContent() {
                       border: `1px solid ${
                         msg.role === 'user'
                           ? 'rgba(139, 92, 246, 0.5)'
-                          : 'var(--border-subtle)'
+                          : 'rgba(139, 92, 246, 0.25)'
                       }`,
-                      borderRadius: '10px',
-                      padding: '0.85rem 1rem',
+                      borderRadius: '12px',
+                      padding: '0.95rem 1.1rem',
                       fontSize: '0.86rem',
-                      lineHeight: 1.5,
-                      whiteSpace: 'pre-wrap',
+                      lineHeight: 1.55,
                     }}
                   >
-                    <div>{msg.text}</div>
+                    {msg.role === 'assistant' && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          marginBottom: '0.55rem',
+                          paddingBottom: '0.4rem',
+                          borderBottom: '1px solid var(--border-subtle)',
+                          fontSize: '0.74rem',
+                          fontWeight: 600,
+                          color: '#a78bfa',
+                        }}
+                      >
+                        <span style={{ color: '#38bdf8', fontSize: '0.9rem' }}>✦</span>
+                        <span>Gemini 3.8 Flash · Copiloto B2B Pacific Flowers</span>
+                      </div>
+                    )}
+
+                    {msg.role === 'assistant' ? (
+                      <GeminiMarkdown
+                        content={msg.text}
+                        onCopyText={(txt) => {
+                          if (navigator?.clipboard?.writeText) {
+                            navigator.clipboard.writeText(txt);
+                          }
+                          showToast(
+                            'success',
+                            'Texto puro copiado para a área de transferência!'
+                          );
+                        }}
+                      />
+                    ) : (
+                      <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
+                    )}
 
                     {/* Tabela Compacta do Radar de Concorrência (Top 5 do Mercado Livre) */}
                     {msg.radar?.concorrentes && msg.radar.concorrentes.length > 0 && (
@@ -1618,6 +1919,28 @@ function DashboardContent() {
                     )}
                   </div>
                 ))}
+
+                {chatLoading && (
+                  <div
+                    style={{
+                      alignSelf: 'flex-start',
+                      backgroundColor: 'var(--bg-base)',
+                      border: '1px solid rgba(139, 92, 246, 0.35)',
+                      borderRadius: '10px',
+                      padding: '0.75rem 1rem',
+                      fontSize: '0.82rem',
+                      color: '#c4b5fd',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <span className="spinner-inline" />
+                    <span>
+                      ✦ Gemini está analisando o catálogo oficial e consultando os 5 primeiros colocados do Mercado Livre...
+                    </span>
+                  </div>
+                )}
               </div>
 
               <form
@@ -1628,12 +1951,12 @@ function DashboardContent() {
                   type="text"
                   className="form-input"
                   style={{ flex: 1 }}
-                  placeholder="Peça ao Copiloto B2B para pesquisar concorrentes e otimizar título/preço..."
+                  placeholder="Pergunte qualquer coisa ao Gemini B2B: otimizar kit, criar descrição, auditar foto, simular margem..."
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                 />
                 <button type="submit" className="btn-primary" disabled={chatLoading}>
-                  {chatLoading ? 'Analisando Concorrência...' : 'Enviar para /api/chat'}
+                  {chatLoading ? '✦ Pensando...' : '✦ Perguntar ao Gemini'}
                 </button>
               </form>
             </div>
@@ -1651,16 +1974,9 @@ function DashboardContent() {
             <div className="copilot-floating-panel" role="region" aria-label="Copiloto B2B IA">
               <div className="copilot-floating-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span
-                    style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      backgroundColor: '#00ff88',
-                    }}
-                  />
+                  <span style={{ color: '#38bdf8', fontSize: '0.95rem' }}>✦</span>
                   <strong style={{ fontSize: '0.82rem' }}>
-                    Copiloto B2B + Radar Concorrência
+                    Gemini 3.8 Flash · Copiloto B2B
                   </strong>
                 </div>
                 <button
@@ -1679,7 +1995,7 @@ function DashboardContent() {
                     key={idx}
                     style={{
                       alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                      maxWidth: '88%',
+                      maxWidth: '92%',
                       backgroundColor:
                         msg.role === 'user'
                           ? 'rgba(139, 92, 246, 0.22)'
@@ -1690,13 +2006,24 @@ function DashboardContent() {
                           : 'var(--border-subtle)'
                       }`,
                       borderRadius: '8px',
-                      padding: '0.6rem 0.75rem',
+                      padding: '0.65rem 0.8rem',
                       fontSize: '0.78rem',
-                      lineHeight: 1.45,
-                      whiteSpace: 'pre-wrap',
+                      lineHeight: 1.48,
                     }}
                   >
-                    {msg.text}
+                    {msg.role === 'assistant' ? (
+                      <GeminiMarkdown
+                        content={msg.text}
+                        onCopyText={(txt) => {
+                          if (navigator?.clipboard?.writeText) {
+                            navigator.clipboard.writeText(txt);
+                          }
+                          showToast('success', 'Texto copiado!');
+                        }}
+                      />
+                    ) : (
+                      <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1722,11 +2049,11 @@ function DashboardContent() {
                   onClick={() =>
                     handleSendChatMessage(
                       null,
-                      `Atualizar preço do ${items[0]?.id || 'MLB3948102938'} para R$ 94,90`
+                      `Crie uma descrição técnica para a Caixa de 250 Envelopes Kraft 90g`
                     )
                   }
                 >
-                  ⚡ Sugerir R$ 94,90
+                  ✍️ Descrição Kraft 90g
                 </button>
               </div>
 

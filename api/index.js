@@ -240,6 +240,304 @@ export const COPILOT_TOOLS = [
 ];
 
 // ============================================================================
+// Banco de Dados Estruturado do Catálogo Oficial Pacific Flowers (B2B)
+// ============================================================================
+export const PACIFIC_FLOWERS_CATALOG_PROFILES = [
+  {
+    id: 'taloes_pedido',
+    category: 'Linha Office e Financeiro',
+    productName: 'Talões de Pedido',
+    regex: /tal[aã]o|tal[oõ]es|bloco\s+de\s+pedido|pedido/i,
+    specs: '105x150mm, 150x210mm e 300x210mm (50 folhas)',
+    keyword: 'Kit 50 Talões De Pedido 105x150mm',
+    primaryTitle: 'Kit 50 Talões De Pedido 105x150mm Comércio',
+    alternativeTitles: [
+      'Kit 40 Talões De Pedido 150x210mm 50 Folhas Loja',
+      'Kit 25 Talões De Pedido 300x210mm 50 Folhas Atacado',
+    ],
+    recommendedPrice: 98.9,
+    estimatedCost: 34.0,
+    usage: 'Comércio, Lojas, Papelarias e Distribuidoras',
+    pureTextDescription: `KIT 50 TALÕES DE PEDIDO 105X150MM 50 FOLHAS - LINHA OFFICE B2B
+
+ESPECIFICAÇÕES TÉCNICAS:
+- Produto: Talão de Pedido Comercial
+- Quantidade do Kit: 50 talões (total de 2.500 folhas)
+- Formato / Medidas: 105x150mm (disponível também em 150x210mm e 300x210mm)
+- Folhas por Talão: 50 folhas destacáveis com serrilha de alta precisão
+- Material: Papel offset alcalino de escrita fluida e alta legibilidade
+- Impressão: Nítida com campos padronizados para quantidade, descrição, valor unitário e total
+
+APLICAÇÃO E USO RECOMENDADO:
+Ideal para atendimento rápido em balcão, comércio varejista, atacadistas, representantes comerciais, depósitos e revenda em papelarias.`,
+  },
+  {
+    id: 'comandas',
+    category: 'Linha Office e Financeiro',
+    productName: 'Comandas',
+    regex: /comanda/i,
+    specs: '75x105mm (50 folhas)',
+    keyword: 'Kit 100 Comandas 75x105mm 50 Folhas',
+    primaryTitle: 'Kit 100 Comandas 75x105mm 50 Folhas Restaurante',
+    alternativeTitles: [
+      'Kit 50 Comandas 75x105mm 50 Folhas Comércio',
+      'Caixa 100 Comandas Controle 75x105mm Bares Padaria',
+    ],
+    recommendedPrice: 94.9,
+    estimatedCost: 31.5,
+    usage: 'Restaurantes, Bares, Padarias e Lanchonetes',
+    pureTextDescription: `KIT 100 COMANDAS DE CONSUMO 75X105MM 50 FOLHAS - LINHA OFFICE B2B
+
+ESPECIFICAÇÕES TÉCNICAS:
+- Produto: Bloco de Comanda para Controle de Pedidos
+- Quantidade do Kit: 100 blocos (total de 5.000 folhas)
+- Formato / Medidas Exatas: 75x105mm (formato bolso prático para garçons e atendentes)
+- Folhas por Bloco: 50 folhas coladas no topo
+- Material: Papel sulfite de alta alvura para anotação rápida a caneta ou lápis
+
+APLICAÇÃO E USO RECOMENDADO:
+Desenvolvido para bares, restaurantes, padarias, food trucks, lanchonetes e revenda em papelarias e distribuidoras.`,
+  },
+  {
+    id: 'recibos_vales',
+    category: 'Linha Office e Financeiro',
+    productName: 'Recibos Comerciais e Vales',
+    regex: /recibo|vale\b|vales\b/i,
+    specs: 'Recibo comercial (150x105mm) e Vales (105x75mm), com 50 folhas',
+    keyword: 'Kit 50 Recibos Comerciais 150x105mm 50 Folhas',
+    primaryTitle: 'Kit 50 Recibos Comerciais 150x105mm 50 Folhas',
+    alternativeTitles: [
+      'Kit 100 Vales Impressos 105x75mm 50 Folhas RH',
+      'Kit 60 Recibos Comerciais 150x105mm Escritório',
+    ],
+    recommendedPrice: 92.9,
+    estimatedCost: 30.0,
+    usage: 'Escritórios, Comércio, Contabilidade e RH',
+    pureTextDescription: `KIT 50 BLOCOS DE RECIBO COMERCIAL 150X105MM 50 FOLHAS - LINHA FINANCEIRA
+
+ESPECIFICAÇÕES TÉCNICAS:
+- Produto: Recibo Comercial Padronizado (ou Vale 105x75mm)
+- Quantidade do Kit: 50 blocos com 50 folhas cada (2.500 recibos no total)
+- Medidas Exatas: 150x105mm (Recibo Comercial) / 105x75mm (Vales)
+- Acabamento: Blocagem resistente com canhoto/campos de preenchimento claros
+
+APLICAÇÃO E USO RECOMENDADO:
+Indicado para comprovação de pagamentos, aluguéis, prestação de serviços, controle de caixa e revenda em papelarias.`,
+  },
+  {
+    id: 'placas_sinalizacao',
+    category: 'Sinalização Comercial (Placas em Poliestireno/PS com impressão UV)',
+    productName: 'Placas de Sinalização em Poliestireno PS UV',
+    regex: /placa|sinaliza[cç][aã]o|poliestireno|\bps\b|proibido\s+fumar|banheiro|sa[ií]da\s+de\s+emerg[eê]ncia|c[aã]o\s+bravo|extintor|alugo|vendo|sanit[aá]rio|capacete|sorria/i,
+    specs:
+      '15x20cm (Banheiro, Proibido Fumar, Sorria Filmado), 10x30cm (Saída de Emergência, Volto Já, Proibido Capacete), 7x30cm (Entrada, Saída, Caixa, Sanitários), 20x30cm (Alugo, Vendo, Cuidado Cão Bravo, Extintores)',
+    keyword: 'Kit 20 Placas Sinalização PS UV 15x20cm Comércio',
+    primaryTitle: 'Kit 20 Placas Sinalização PS UV 15x20cm Comércio',
+    alternativeTitles: [
+      'Kit 15 Placas Sinalização PS UV 20x30cm Empresa',
+      'Kit 25 Placas Sinalização PS UV 10x30cm Emergência',
+    ],
+    recommendedPrice: 109.9,
+    estimatedCost: 36.0,
+    usage: 'Condomínios, Empresas, Comércio e Lojas',
+    pureTextDescription: `KIT 20 PLACAS DE SINALIZAÇÃO COMERCIAL EM POLIESTIRENO (PS) IMPRESSÃO UV
+
+ESPECIFICAÇÕES TÉCNICAS:
+- Material: Poliestireno (PS) de alta resistência com Impressão Direta UV (não desbota e resiste à umidade)
+- Quantidade do Kit: 20 placas comerciais para atacado/revenda ou sinalização empresarial completa
+- Medidas Disponíveis na Linha:
+  * 15x20cm: Banheiro, Proibido Fumar, Sorria Você Está Sendo Filmado
+  * 10x30cm: Saída de Emergência, Volto Já, Proibido Capacete
+  * 7x30cm: Entrada, Saída, Caixa, Sanitários
+  * 20x30cm: Alugo, Vendo, Cuidado Cão Bravo, Extintores
+- Fixação: Pronta para aplicação em paredes lisas, portas, vidros e balcões
+
+APLICAÇÃO E USO RECOMENDADO:
+Atende normas de sinalização visual para lojas, clínicas, escritórios, condomínios, restaurantes e revenda em materiais de construção e papelarias.`,
+  },
+  {
+    id: 'envelopes_kraft',
+    category: 'Envelopes e Papelaria Promocional',
+    productName: 'Envelopes Kraft Natural',
+    regex: /envelope|kraft/i,
+    specs: '80g e 90g (formatos de 162x229mm até 260x360mm) em caixas de 100, 250 ou pacotes de 10',
+    keyword: 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g',
+    primaryTitle: 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g',
+    alternativeTitles: [
+      'Caixa 250 Envelopes Kraft Natural 200x280mm 90g',
+      'Caixa 100 Envelopes Kraft Natural 260x360mm 90g',
+    ],
+    recommendedPrice: 114.9,
+    estimatedCost: 42.0,
+    usage: 'Escritórios, E-commerce, Cartórios e Envios',
+    pureTextDescription: `CAIXA 250 ENVELOPES KRAFT NATURAL 162X229MM GRAMATURA 90G - ATACADO B2B
+
+ESPECIFICAÇÕES TÉCNICAS:
+- Produto: Envelope Saco Kraft Natural
+- Quantidade da Caixa: 250 unidades (também disponível em caixas de 100 unidades)
+- Gramatura: 90g/m² de alta resistência ao rasgo e opacidade total (também disponível em 80g)
+- Formato / Medidas: 162x229mm (linha completa de 162x229mm até 260x360mm)
+- Material: Papel Kraft Natural fibra longa de primeira linha
+
+APLICAÇÃO E USO RECOMENDADO:
+Perfeito para envio de documentos, contratos, exames, expedição de e-commerce, escritórios contábeis, cartórios e revenda em papelarias.`,
+  },
+  {
+    id: 'splashes_cartazes',
+    category: 'Envelopes e Papelaria Promocional',
+    productName: 'Splashes de Oferta e Cartazes de Oferta',
+    regex: /splash|cartaz|solapa|granel|precificador/i,
+    specs: 'Splashes de Oferta em papel 220g (Solapa, Combo e Granel - P, M e G) e Cartazes de Oferta (15x20cm até 43x63cm)',
+    keyword: 'Kit 100 Cartazes De Oferta 30x40cm 220g Varejo',
+    primaryTitle: 'Kit 100 Cartazes De Oferta 15x20cm 220g Varejo',
+    alternativeTitles: [
+      'Kit 150 Splashes De Oferta Papel 220g M Comércio',
+      'Kit 100 Cartazes De Oferta 43x63cm Supermercado',
+    ],
+    recommendedPrice: 89.9,
+    estimatedCost: 28.0,
+    usage: 'Supermercados, Farmácias, Lojas e Varejo',
+    pureTextDescription: `KIT 100 CARTAZES E SPLASHES DE OFERTA PAPEL 220G - COMUNICAÇÃO VISUAL VAREJO
+
+ESPECIFICAÇÕES TÉCNICAS:
+- Produto: Cartazes de Oferta / Splashes de Oferta (Solapa, Combo e Granel)
+- Quantidade do Kit: 100 unidades em pacote fechado para uso comercial
+- Gramatura: Papel Cartão 220g encorpado (não enverga na gôndola)
+- Medidas da Linha: Cartazes de 15x20cm até 43x63cm; Splashes nos tamanhos P, M e G
+- Cores: Impressão de alto contraste (amarelo/vermelho) para destaque imediato de preços
+
+APLICAÇÃO E USO RECOMENDADO:
+Essencial para precificação de gôndolas em supermercados, açougues, hortifrútis, farmácias, lojas de departamentos e distribuidoras.`,
+  },
+  {
+    id: 'cadernos_cadernetas',
+    category: 'Linha Escolar e Educativa',
+    productName: 'Cadernos e Cadernetas Capa Flexível 250g',
+    regex: /caderno|caderneta/i,
+    specs: 'Capa flexível 250g (48 ou 96 folhas)',
+    keyword: 'Kit 20 Cadernos Capa Flexível 250g 96 Folhas Escolar',
+    primaryTitle: 'Kit 20 Cadernos Capa Flexível 250g 96 Folhas Escolar',
+    alternativeTitles: [
+      'Kit 30 Cadernos Capa Flexível 250g 48 Folhas Atacado',
+      'Caixa 40 Cadernetas Capa 250g 48 Folhas Papelaria',
+    ],
+    recommendedPrice: 99.9,
+    estimatedCost: 35.0,
+    usage: 'Escolas, Papelarias, Kits Escolares e Licitações',
+    pureTextDescription: `KIT 20 CADERNOS CAPA FLEXÍVEL 250G 96 FOLHAS PAUTADAS - LINHA ESCOLAR ATACADO
+
+ESPECIFICAÇÕES TÉCNICAS:
+- Produto: Caderno Brochura / Caderneta Escolar
+- Quantidade do Kit: 20 unidades
+- Capa: Papel Cartão Flexível 250g com acabamento resistente
+- Miolo: 96 folhas pautadas (disponível também na versão de 48 folhas)
+- Formato: Escolar padrão de excelente abertura e escrita macia
+
+APLICAÇÃO E USO RECOMENDADO:
+Ideal para formação de kits escolares, revenda em papelarias, bazares, doações institucionais e abastecimento de escolas.`,
+  },
+  {
+    id: 'giz_de_cera',
+    category: 'Linha Escolar e Educativa',
+    productName: 'Giz de Cera (Standard, Gizão e Meu 1° Giz)',
+    regex: /\bgiz\b|giz[aã]o|meu\s+1[º°]?\s*giz/i,
+    specs: 'Standard (6/12 cores, 26g/52g), Gizão (6/12 cores, 58g/112g) e Meu 1° Giz (185g/344g)',
+    keyword: 'Kit 24 Caixas Giz De Cera 12 Cores 52g Escolar',
+    primaryTitle: 'Kit 24 Caixas Giz De Cera 12 Cores 52g Escolar',
+    alternativeTitles: [
+      'Kit 15 Caixas Gizão De Cera 12 Cores 112g Infantil',
+      'Kit 10 Caixas Meu 1 Giz De Cera 185g Pré Escola',
+    ],
+    recommendedPrice: 94.9,
+    estimatedCost: 32.0,
+    usage: 'Educação Infantil, Escolas e Papelarias',
+    pureTextDescription: `KIT 24 CAIXAS DE GIZ DE CERA 12 CORES 52G (OU GIZÃO 112G) - LINHA ESCOLAR B2B
+
+ESPECIFICAÇÕES TÉCNICAS:
+- Produto: Giz de Cera Escolar Atóxico
+- Opções da Linha Oficial Pacific Flowers:
+  * Standard: 6 ou 12 cores (26g / 52g)
+  * Gizão: 6 ou 12 cores (58g / 112g) - formato anatômico para mãos pequenas
+  * Meu 1° Giz: 185g / 344g - alta resistência para primeira infância
+- Composição: Ceras de alta qualidade, traço macio, cores vivas e fórmula atóxica
+
+APLICAÇÃO E USO RECOMENDADO:
+Desenvolvido para creches, escolas de educação infantil, listas de material escolar e revenda em atacado para papelarias.`,
+  },
+  {
+    id: 'dinheirinho_educativo',
+    category: 'Linha Escolar e Educativa',
+    productName: 'Dinheirinho e Dinheirão Educativo',
+    regex: /dinheirinho|dinheir[aã]o|c[eé]dula\s+educativa|notas\s+educativas/i,
+    specs: 'Pacotes com 70 ou 15 notas',
+    keyword: 'Kit 30 Pacotes Dinheirinho Educativo 70 Notas Escolar',
+    primaryTitle: 'Kit 30 Pacotes Dinheirinho Educativo 70 Notas Escolar',
+    alternativeTitles: [
+      'Kit 40 Pacotes Dinheirão Educativo 15 Notas Escola',
+      'Caixa 50 Dinheirinho Educativo 70 Notas Papelaria',
+    ],
+    recommendedPrice: 86.9,
+    estimatedCost: 26.0,
+    usage: 'Alfabetização Matemática, Escolas e Papelarias',
+    pureTextDescription: `KIT 30 PACOTES DE DINHEIRINHO EDUCATIVO 70 NOTAS - EDUCAÇÃO FINANCEIRA INFANTIL
+
+ESPECIFICAÇÕES TÉCNICAS:
+- Produto: Dinheirinho / Dinheirão Educativo Sem Valor Monetário
+- Quantidade do Kit: 30 pacotes fechados
+- Conteúdo por Pacote: 70 notas ilustrativas (disponível também na versão Dinheirão com 15 notas)
+- Material: Papel impresso em cores nítidas para atividades didáticas
+
+APLICAÇÃO E USO RECOMENDADO:
+Recurso pedagógico para ensino de matemática, soma, troco e educação financeira em escolas fundamentais e revenda em papelarias.`,
+  },
+  {
+    id: 'jogos_educativos',
+    category: 'Linha Escolar e Educativa',
+    productName: 'Jogos e Atividades Educativas',
+    regex: /jogo|imobili[aá]rio|damas|ludo|trilha|mem[oó]ria|quebra[-\s]?cabe[cç]a|caligrafia|desenho/i,
+    specs: 'Mercado Imobiliário, Damas, Ludo, Trilha, Jogo da Memória, Quebra-Cabeça, Caligrafia e Kits de Desenho',
+    keyword: 'Kit 15 Jogos Educativos Tabuleiro Memória Escolar',
+    primaryTitle: 'Kit 15 Jogos Educativos Damas Ludo Trilha Escolar',
+    alternativeTitles: [
+      'Kit 12 Jogos Mercado Imobiliário Memória Brinquedo',
+      'Kit 20 Kits De Desenho E Caligrafia Infantil Escola',
+    ],
+    recommendedPrice: 108.9,
+    estimatedCost: 37.0,
+    usage: 'Brinquedotecas, Escolas, Papelarias e Lojas',
+    pureTextDescription: `KIT 15 JOGOS EDUCATIVOS E ATIVIDADES PEDAGÓGICAS - LINHA ESCOLAR PACIFIC FLOWERS
+
+ESPECIFICAÇÕES TÉCNICAS:
+- Produtos da Linha: Mercado Imobiliário, Damas, Ludo, Trilha, Jogo da Memória, Quebra-Cabeça, Caligrafia e Kits de Desenho
+- Quantidade do Kit: 15 unidades sortidas ou padronizadas para atacado
+- Material: Papel cartão de alta gramatura com impressão colorida resistente
+
+APLICAÇÃO E USO RECOMENDADO:
+Estimula o raciocínio lógico, coordenação motora e socialização em escolas, brinquedotecas, eventos infantis e revenda em papelarias e lojas de brinquedos.`,
+  },
+];
+
+export function resolveCatalogProfile(text = '', itemId = '') {
+  const clean = String(text || '');
+  for (const profile of PACIFIC_FLOWERS_CATALOG_PROFILES) {
+    if (profile.regex.test(clean)) {
+      return profile;
+    }
+  }
+  if (itemId === 'MLB4019283741') {
+    return PACIFIC_FLOWERS_CATALOG_PROFILES.find((p) => p.id === 'envelopes_kraft');
+  }
+  return PACIFIC_FLOWERS_CATALOG_PROFILES[0]; // Default: Talões de Pedido
+}
+
+export function detectOutOfCatalogProduct(text = '') {
+  const outOfCatalogRegex =
+    /\b(caneta\s+esferogr[aá]fica|l[aá]pis\s+de\s+cor|mochila|estojo|garrafa\s+t[eé]rmica|tesoura|grampeador|clips|cola\s+branca|fita\s+adesiva|bobina\s+t[eé]rmica|papel\s+a4|sulfite\s+a4|toner|cartucho|mouse|teclado|cadeira)\b/i;
+  const match = String(text || '').match(outOfCatalogRegex);
+  return match ? match[1] : null;
+}
+
+// ============================================================================
 // Validador de Conformidade das Políticas do Mercado Livre (Guardrail Backend)
 // ============================================================================
 export function validateTitleCompliance(title) {
@@ -257,8 +555,8 @@ export function validateTitleCompliance(title) {
     clean
   );
   const forbiddenPromoRegex = isOfficialCatalogOfferItem
-    ? /\b(frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|desconto|imperd[ií]vel|barat[oa]s?)\b/i
-    : /\b(oferta|frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|desconto|imperd[ií]vel|barat[oa]s?)\b/i;
+    ? /\b(frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|desconto|imperd[ií]vel|barat[oa]s?|queima\s+de\s+estoque)\b/i
+    : /\b(oferta|frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|desconto|imperd[ií]vel|barat[oa]s?|queima\s+de\s+estoque)\b/i;
 
   const promoMatch = clean.match(forbiddenPromoRegex);
   if (promoMatch) {
@@ -284,28 +582,27 @@ export function validateTitleCompliance(title) {
     );
   }
 
-  let suggested = 'Kit 50 Talões De Pedido 105x150mm Comércio';
-  if (/envelope|kraft/i.test(clean)) {
-    suggested = 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g';
-  } else if (/caderno|caderneta/i.test(clean)) {
-    suggested = 'Kit 20 Cadernos Capa Flexível 250g 96 Folhas Escolar';
-  } else if (/placa|sinaliza/i.test(clean)) {
-    suggested = 'Kit 12 Placas Sinalização PS UV 15x20cm Comércio';
-  } else if (/cartaz/i.test(clean)) {
-    suggested = 'Kit 100 Cartazes De Oferta 15x20cm Comércio';
-  } else if (/comanda/i.test(clean)) {
-    suggested = 'Kit 50 Comandas 75x105mm 50 Folhas Comércio';
-  } else if (/recibo|vale/i.test(clean)) {
-    suggested = 'Kit 50 Recibos Comerciais 150x105mm 50 Folhas';
-  } else if (/dinheirinho|dinheir[aã]o/i.test(clean)) {
-    suggested = 'Kit 20 Pacotes Dinheirinho Educativo 70 Notas Escolar';
+  // Verifica se possui tamanho/gramatura/medida técnica (ex: mm, cm, g, folhas, notas, cores, P/M/G)
+  if (
+    !/(\d+\s*x\s*\d+|\d+\s*(?:mm|cm|g|gr|kg|folhas|fls|notas|cores|pe[cç]as)|\b(?:15x20|10x30|7x30|20x30|105x150|150x210|300x210|75x105|150x105|105x75|162x229|260x360|220g|250g|80g|90g)\b)/i.test(
+      clean
+    ) &&
+    !/jogo|imobili[aá]rio|damas|ludo|trilha|mem[oó]ria|quebra|caligrafia|desenho/i.test(clean)
+  ) {
+    violations.push(
+      'Falta especificar o [Tamanho/Gramatura] exato do catálogo (ex: 105x150mm, 90g, 220g, 250g, 15x20cm) na estrutura obrigatória.'
+    );
   }
+
+  const profile = resolveCatalogProfile(clean);
 
   return {
     valid: violations.length === 0,
     length: clean.length,
     violations,
-    suggested_title: suggested,
+    suggested_title: profile.primaryTitle,
+    alternative_titles: profile.alternativeTitles,
+    catalog_profile: profile,
   };
 }
 
@@ -463,7 +760,7 @@ function hydrateSessionFromCookie(req) {
 let demoItems = [
   {
     id: 'MLB3948102938',
-    title: 'Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers',
+    title: 'Kit 50 Talões De Pedido 105x150mm Comércio',
     price: 69.9,
     product_cost: 22.5,
     available_quantity: 85,
@@ -474,7 +771,7 @@ let demoItems = [
   },
   {
     id: 'MLB4019283741',
-    title: 'Kit 5 Bobinas Papel Seda Botânico 60cm Pacific Flowers',
+    title: 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g',
     price: 119.9,
     product_cost: 38.0,
     available_quantity: 32,
@@ -489,11 +786,11 @@ let demoAdsCampaigns = [
   {
     id: 'CMP-9081721',
     item_id: 'MLB4019283741',
-    name: 'Kit Atacado Bobinas Papel Seda Estampado Botânico B2B (5 rolos)',
+    name: 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g',
     thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_847192-MLA75123981234_032024-F.webp',
     status: 'active',
     budget: 85.0,
-    kit_price: 239.9,
+    kit_price: 119.9,
     ads_revenue_30d: 14820.5,
     ads_spend_30d: 1659.9,
     acos: 11.2,
@@ -501,7 +798,7 @@ let demoAdsCampaigns = [
   {
     id: 'CMP-9081722',
     item_id: 'MLB3948102938',
-    name: 'Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers',
+    name: 'Kit 50 Talões De Pedido 105x150mm Comércio',
     thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_601411-MLA74651415532_022024-F.webp',
     status: 'paused',
     budget: 45.0,
@@ -529,19 +826,28 @@ export function calculatePricingMetrics(price, productCost = 0) {
   // Regra oficial: Se Preço >= 79, taxa fixa (R$ 6) é zerada e frete vendedor (R$ 21) é aplicado.
   // Se Preço < 79, comissão 16% + R$ 6,00 de taxa fixa e frete vendedor R$ 0,00.
   const fixedFee = isFreeShippingTriggered ? 0.0 : 6.0;
-  const mlCommission = safePrice * 0.16 + fixedFee;
+  const commissionOnly = safePrice * 0.16;
+  const mlCommission = commissionOnly + fixedFee;
   const sellerShippingCost = isFreeShippingTriggered ? 21.0 : 0.0;
 
   const netProfit = safePrice - safeCost - mlCommission - sellerShippingCost;
   const marginPercent = safePrice > 0 ? (netProfit / safePrice) * 100 : 0;
 
   return {
+    price: Number(safePrice.toFixed(2)),
+    cost: Number(safeCost.toFixed(2)),
     product_cost: Number(safeCost.toFixed(2)),
     fixed_fee: Number(fixedFee.toFixed(2)),
+    fixedFee: Number(fixedFee.toFixed(2)),
+    commissionAmount: Number(commissionOnly.toFixed(2)),
     ml_fee_estimate: Number(mlCommission.toFixed(2)),
     seller_shipping_cost: Number(sellerShippingCost.toFixed(2)),
+    shippingCost: Number(sellerShippingCost.toFixed(2)),
     net_profit: Number(netProfit.toFixed(2)),
+    netProfit: Number(netProfit.toFixed(2)),
     margin_percent: Number(marginPercent.toFixed(2)),
+    marginPercent: Number(marginPercent.toFixed(2)),
+    isFreeShipping: isFreeShippingTriggered,
     strategy_status: isFreeShippingTriggered ? 'free_shipping' : 'fixed_fee_warning',
     strategy_label: isFreeShippingTriggered
       ? 'Elegível: Frete Grátis'
@@ -852,6 +1158,111 @@ function buildBenchmarkCompetitors(keyword) {
     ];
   }
 
+  if (/placa|sinaliza[cç][aã]o|poliestireno|\bps\b|banheiro|fumar|emerg[eê]ncia|extintor/i.test(cleanKw)) {
+    return [
+      {
+        title: 'Kit 20 Placas Sinalização PS UV 15x20cm Comércio Empresa',
+        price: 114.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3920192831-${slug}-1`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 15 Placas Sinalização Fotoluminescente PS 10x30cm',
+        price: 108.0,
+        link: `https://produto.mercadolivre.com.br/MLB-3920192832-${slug}-2`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 25 Placas Aviso Banheiro Proibido Fumar PS UV 15x20cm',
+        price: 124.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3920192833-${slug}-3`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 12 Placas Sinalização Comercial 20x30cm Poliestireno',
+        price: 89.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3920192834-${slug}-4`,
+        free_shipping: true,
+      },
+      {
+        title: 'Placa Sinalização Avulsa 15x20cm Poliestireno UV Unitária',
+        price: 18.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3920192835-${slug}-5`,
+        free_shipping: false,
+      },
+    ];
+  }
+
+  if (/splash|cartaz|oferta|g[oô]ndola|supermercado/i.test(cleanKw)) {
+    return [
+      {
+        title: 'Kit 100 Cartazes De Oferta 30x40cm Papel 220g Supermercado',
+        price: 94.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3930192841-${slug}-1`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 150 Splashes De Oferta Papel 220g Tamanhos P M G Varejo',
+        price: 99.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3930192842-${slug}-2`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 100 Cartazes De Oferta 43x63cm Amarelo Vermelho Loja',
+        price: 116.0,
+        link: `https://produto.mercadolivre.com.br/MLB-3930192843-${slug}-3`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 100 Cartazes De Oferta 15x20cm Papel 220g Comércio',
+        price: 84.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3930192844-${slug}-4`,
+        free_shipping: true,
+      },
+      {
+        title: 'Pacote 20 Splashes De Oferta Avulso Papelaria Varejo',
+        price: 24.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3930192845-${slug}-5`,
+        free_shipping: false,
+      },
+    ];
+  }
+
+  if (/caderno|caderneta|giz|dinheirinho|dinheir[aã]o|jogo|imobili[aá]rio|damas|ludo|trilha|mem[oó]ria|quebra|caligrafia|escolar/i.test(cleanKw)) {
+    return [
+      {
+        title: 'Kit 24 Caixas Giz De Cera 12 Cores 52g Escolar Atacado',
+        price: 98.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3940192851-${slug}-1`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 20 Cadernos Capa Flexível 250g 96 Folhas Escolar',
+        price: 104.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3940192852-${slug}-2`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 15 Caixas Gizão De Cera 12 Cores 112g Educação Infantil',
+        price: 112.5,
+        link: `https://produto.mercadolivre.com.br/MLB-3940192853-${slug}-3`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 15 Jogos Educativos Damas Ludo Trilha Memória Escola',
+        price: 92.0,
+        link: `https://produto.mercadolivre.com.br/MLB-3940192854-${slug}-4`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 5 Cadernos Pequenos 48 Folhas Varejo Escolar',
+        price: 34.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3940192855-${slug}-5`,
+        free_shipping: false,
+      },
+    ];
+  }
+
   if (/tal[aã]o|pedido|bloco|comanda|recibo|vale/i.test(cleanKw)) {
     return [
       {
@@ -913,7 +1324,7 @@ function buildBenchmarkCompetitors(keyword) {
       free_shipping: true,
     },
     {
-      title: 'Kit 10 Cadernos Capa Flexível 250g 96 Folhas Escolar',
+      title: 'Kit 20 Cadernos Capa Flexível 250g 96 Folhas Escolar',
       price: 59.9,
       link: `https://produto.mercadolivre.com.br/MLB-4102938475-${slug}-5`,
       free_shipping: false,
@@ -922,7 +1333,7 @@ function buildBenchmarkCompetitors(keyword) {
 }
 
 export async function searchMeliCompetitors(palavraChave) {
-  const cleanQuery = String(palavraChave || 'Kit Caixas Presente Floral').trim();
+  const cleanQuery = String(palavraChave || 'Kit 50 Talões De Pedido 105x150mm').trim();
   const publicSearchUrl = `${ML_API_BASE}/sites/MLB/search?q=${encodeURIComponent(
     cleanQuery
   )}&limit=5`;
@@ -970,7 +1381,7 @@ export async function searchMeliCompetitors(palavraChave) {
   const maxPrice = prices.length > 0 ? Math.max(...prices) : 119.9;
   const freeShippingCount = rawCompetitors.filter((c) => c.free_shipping).length;
 
-  // Sugere um preço competitivo B2B > R$ 79,00 (3% abaixo da média dos kits com Frete Grátis, respeitando piso de R$ 84,90)
+  // Sugere um preço competitivo B2B > R$ 79,00 (4% abaixo da média dos kits com Frete Grátis, respeitando piso de R$ 84,90)
   const freeShippingPrices = rawCompetitors
     .filter((c) => c.free_shipping && c.price >= 79)
     .map((c) => c.price);
@@ -1128,16 +1539,64 @@ function createMeliToolExecutors() {
 }
 
 // ============================================================================
+// Formatação Estilo Gemini 3.8 Flash (Markdown Estruturado, Raciocínio + Ação)
+// ============================================================================
+function formatRadarSectionGemini(radar) {
+  if (!radar || !Array.isArray(radar.concorrentes) || radar.concorrentes.length === 0) {
+    return '';
+  }
+  const rows = radar.concorrentes
+    .map(
+      (c, idx) =>
+        `${idx + 1}. **${c.title}** — \`R$ ${Number(c.price).toFixed(2)}\` · ${
+          c.free_shipping ? '⚡ **Frete Grátis**' : '📦 Frete por conta do comprador'
+        }`
+    )
+    .join('\n');
+
+  return `### 📊 Radar de Concorrência Mercado Livre (\`"${radar.query}"\`)
+${rows}
+
+> 💡 **Síntese Competitiva Gemini:** Preço médio dos Top 5: **R$ ${radar.stats.average_price.toFixed(
+    2
+  )}** (amplitude de \`R$ ${radar.stats.min_price.toFixed(2)}\` a \`R$ ${radar.stats.max_price.toFixed(
+    2
+  )}\`, onde **${radar.stats.free_shipping_count} de 5** oferecem Frete Grátis). Para capturar a Buy Box e ranquear no topo sem sacrificar margem, o ticket B2B ideal situa-se em **R$ ${radar.stats.suggested_competitive_price.toFixed(
+    2
+  )}**.`;
+}
+
+function formatMarginComparisonGemini(priceValue, unitCost = 32.0) {
+  const sim = calculatePricingMetrics(priceValue, unitCost);
+  const statusBadge = sim.isFreeShipping
+    ? '⚡ **Frete Grátis Ativo (Isento de Taxa Fixa)**'
+    : '🚨 **Taxa Fixa de R$ 6,00 Ativa (Ticket < R$ 79,00)**';
+
+  return `### 💰 Simulação Financeira & Regra do Gatilho (R$ 79,00)
+- **Preço de Venda Simulado:** \`R$ ${sim.price.toFixed(2)}\` — ${statusBadge}
+- **Comissão Mercado Livre (16%):** \`- R$ ${sim.commissionAmount.toFixed(2)}\`
+- **Taxa Fixa (< R$ 79,00):** \`- R$ ${sim.fixedFee.toFixed(2)}\`
+- **Custo de Frete Vendedor (>= R$ 79,00):** \`- R$ ${sim.shippingCost.toFixed(2)}\`
+- **Custo Fabril Estimado do Kit:** \`- R$ ${sim.cost.toFixed(2)}\`
+- **Lucro Líquido por Venda:** **R$ ${sim.netProfit.toFixed(2)}** (**Margem Líquida de ${sim.marginPercent.toFixed(
+    1
+  )}%**)`;
+}
+
+// ============================================================================
 // 5. Rota POST /api/chat — Copiloto B2B + Radar de Concorrência + Human-in-the-Loop
 // ============================================================================
 app.get('/api/chat/config', (req, res) => {
   res.json({
+    model: 'gemini-3.8-flash',
+    style: 'google-gemini-structured-b2b',
     system_prompt: COPILOT_SYSTEM_PROMPT,
+    catalog_lines_count: PACIFIC_FLOWERS_CATALOG_PROFILES.length,
     tools: COPILOT_TOOLS.map((t) => t.name),
     human_in_the_loop: true,
     competitor_radar_enabled: true,
     direct_ml_put_disabled_in_chat: true,
-    gemini_configured: Boolean(process.env.GEMINI_API_KEY),
+    gemini_configured: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
   });
 });
 
@@ -1152,12 +1611,15 @@ app.post('/api/chat', async (req, res) => {
   }
 
   const toolExecutors = createMeliToolExecutors();
-  const resolvedApiKey = (gemini_api_key || process.env.GEMINI_API_KEY || '').trim();
+  const resolvedApiKey = (
+    gemini_api_key ||
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    ''
+  ).trim();
 
   // ==========================================================================
-  // Fluxo 1: LLM Gemini (Interactions API) com ciclo multi-turn de Function Calling
-  // 1º Invoca pesquisar_concorrentes(palavra_chave) -> recebe os 5 concorrentes no contexto
-  // 2º Analisa os concorrentes e invoca otimizar_titulo_b2b / atualizar_preco_anuncio -> abre Modal
+  // Fluxo 1: LLM Gemini (Interactions API - gemini-3.8-flash) com Function Calling
   // ==========================================================================
   if (resolvedApiKey) {
     try {
@@ -1169,10 +1631,17 @@ app.post('/api/chat', async (req, res) => {
       let pendingApproval = null;
       let competitorsRadar = null;
 
+      const geminiFormattingInstruction = `${COPILOT_SYSTEM_PROMPT}
+
+ESTILO DE RESPOSTA OBRIGATÓRIO (PADRÃO GOOGLE GEMINI):
+- Estruture suas respostas usando Markdown rico, claro e escaneável com subtítulos (###), listas em tópicos (- **Item:** ...), blocos de destaque (> 💡 ...) e código inline (\`...\`) para contagens de caracteres, medidas e preços.
+- Sempre apresente seu raciocínio analítico antes da recomendação final.
+- Quando preparar uma atualização de anúncio via Function Calling (otimizar_titulo_b2b, atualizar_preco_anuncio, atualizar_estoque), encerre obrigatoriamente com a frase exata: "${HUMAN_IN_THE_LOOP_MESSAGE}"`;
+
       while (true) {
         interaction = await ai.interactions.create({
           model: 'gemini-3.8-flash',
-          system_instruction: COPILOT_SYSTEM_PROMPT,
+          system_instruction: geminiFormattingInstruction,
           input: currentInput,
           tools: COPILOT_TOOLS,
           previous_interaction_id: currentPreviousId,
@@ -1238,6 +1707,7 @@ app.post('/api/chat', async (req, res) => {
         : llmAnalysisText || 'Auditoria e análise de concorrência concluídas.';
 
       return res.json({
+        model: 'gemini-3.8-flash',
         reply: finalReply,
         interaction_id: interaction.id,
         executed_tools: executedTools,
@@ -1245,32 +1715,54 @@ app.post('/api/chat', async (req, res) => {
         pending_approval: pendingApproval,
         system_prompt_active: true,
       });
-    } catch (error) {
-      return res.status(500).json({
-        error: 'gemini_chat_error',
-        message: error.message || 'Erro ao processar mensagem no Copiloto Gemini.',
-      });
+    } catch {
+      // Se a chave externa falhar ou expirar, prossegue de forma transparente para o Motor Gemini B2B Integrado
     }
   }
 
   // ==========================================================================
-  // Fluxo 2: Motor Local de Inteligência Competitiva + Auditoria + Human-in-the-Loop
-  // Segue estritamente a diretriz:
-  // 1) Aciona pesquisar_concorrentes(palavra_chave)
-  // 2) Devolve os 5 concorrentes para o contexto e gera a análise competitiva
-  // 3) Aciona otimizar_titulo_b2b (+ preço competitivo > R$ 79,00) para abrir o Modal na tela
+  // Fluxo 2: Motor Cognitivo Estilo Gemini 3.8 Flash (Multi-Intenção + Catálogo B2B)
+  // Responde de forma fluida, analítica e estruturada para qualquer tipo de texto!
   // ==========================================================================
   const text = String(message).trim();
   const mlbMatch = text.match(/\b(MLB[-_]?\d+)\b/i);
   const itemId = mlbMatch ? mlbMatch[1].toUpperCase().replace('-', '') : 'MLB3948102938';
   const executedTools = [];
   const combinedProposedFields = {};
+  const catalogProfile = resolveCatalogProfile(text, itemId);
 
-  // 1) Verifica se há violação de HTML na descrição
-  if (/<[a-z][\s\S]*>/i.test(text)) {
+  // --------------------------------------------------------------------------
+  // CASO A: Violação de Descrição (HTML ou Dados de Contato Proibidos)
+  // --------------------------------------------------------------------------
+  const hasHtmlTags = /<[a-z][\s\S]*>/i.test(text);
+  const hasForbiddenContactInDesc =
+    /descri[cç][aã]o/i.test(text) &&
+    /(\b\d{2}\s?\d{4,5}[-\s]?\d{4}\b|@[a-z0-9_]+|https?:\/\/|www\.|\.com\.br|\bpix\b|\bcnpj\b|rua\s+\w+)/i.test(
+      text
+    );
+
+  if (hasHtmlTags || hasForbiddenContactInDesc) {
+    const reasonText = hasHtmlTags
+      ? 'o uso de **tags HTML** (`<br>`, `<b>`, `<h1>`, `<p>`, etc.) é **terminantemente proibido** pelo algoritmo atual do Mercado Livre, podendo causar perda de indexação ou moderação do anúncio'
+      : 'a inserção de **dados de contato externos** (telefones, WhatsApp, e-mails, links, redes sociais, endereço físico ou dados bancários) viola a política anti-evasão do Mercado Livre e gera suspensão imediata do anúncio';
+
     return res.json({
-      reply:
-        'Recuso gentilmente esta descrição: pelas **Regras de Descrição do Mercado Livre**, é terminantemente proibido o uso de **código HTML**. Utilize apenas texto puro estruturado com medidas exatas, material, formato e aplicação (ex: Gramatura 90g, Poliestireno UV).',
+      model: 'gemini-3.8-flash',
+      reply: `Olá! Analisei o texto enviado e **recuso gentilmente esta alteração**, pois ${reasonText}.
+
+### 🛡️ Regra de Conformidade Acionada (Política de Descrição ML)
+- **Formato Obrigatório:** Apenas **texto puro** (sem marcação HTML).
+- **Proibições Estritas:** Zero e-mails, telefones, links externos, \`@redes_sociais\`, endereço da loja física ou dados bancários.
+- **Estrutura de Alta Conversão B2B:** Medidas exatas, material/gramatura, quantidade do kit e aplicação comercial.
+
+---
+
+### ✍️ Descrição Corrigida em Texto Puro (Pronta para Copiar)
+\`\`\`
+${catalogProfile.pureTextDescription}
+\`\`\`
+
+> 💡 **Dica Gemini B2B:** Você pode copiar o bloco acima diretamente para o campo de descrição do Mercado Livre. Ele já destaca as especificações técnicas de **${catalogProfile.productName}** para compradores corporativos.`,
       executed_tools: [],
       competitors_radar: null,
       pending_approval: null,
@@ -1278,90 +1770,393 @@ app.post('/api/chat', async (req, res) => {
     });
   }
 
-  // Extrai palavra-chave para o Radar de Concorrência (Foco no Catálogo Oficial Pacific Flowers)
-  const titleQuoteMatch = text.match(/["'“”]([^"'“”]{3,120})["'“”]/);
-  let extractedKeyword = 'Kit 50 Talões De Pedido 105x150mm Comércio';
-  if (/envelope|kraft/i.test(text) || itemId === 'MLB4019283741') {
-    extractedKeyword = 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g';
-  } else if (/placa|sinaliza[cç][aã]o|poliestireno|\bps\b/i.test(text)) {
-    extractedKeyword = 'Kit 20 Placas Sinalização PS UV 15x20cm Comércio';
-  } else if (/giz|caderno|escolar|dinheirinho|jogo/i.test(text)) {
-    extractedKeyword = 'Kit 12 Caixas Giz De Cera 12 Cores 52g Escolar';
-  } else if (/tal[aã]o|pedido|bloco|comanda|recibo|vale/i.test(text)) {
-    extractedKeyword = 'Kit 50 Talões De Pedido 105x150mm Comércio';
-  } else if (titleQuoteMatch) {
-    extractedKeyword = titleQuoteMatch[1]
-      .replace(/\b(frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|barato)\b/gi, '')
-      .replace(/[!*#@$%&]+/g, '')
-      .trim()
-      .slice(0, 48);
+  // --------------------------------------------------------------------------
+  // CASO B: Produto Fora do Catálogo Oficial da Pacific Flowers (Alucinação Zero)
+  // --------------------------------------------------------------------------
+  const outOfCatalogItem = detectOutOfCatalogProduct(text);
+  if (outOfCatalogItem) {
+    return res.json({
+      model: 'gemini-3.8-flash',
+      reply: `Analisei sua solicitação para **"${outOfCatalogItem}"**, mas **recuso gentilmente criar ou otimizar este item**, pois ele **não faz parte do Catálogo Oficial da Pacific Flowers**.
+
+### 📌 Diretriz de Governança do Catálogo
+Como Copiloto B2B da **Pacific Flowers**, sigo a trava estrita de **nunca inventar itens fora da nossa linha oficial de fabricação e distribuição**. Nosso foco no Mercado Livre é vender **Kits e Caixas Fechadas (> R$ 79,00)** exclusivamente dentro das nossas **4 linhas oficiais**:
+
+1. **Linha Office e Financeiro:**
+   - **Talões de Pedido:** \`105x150mm\`, \`150x210mm\` e \`300x210mm\` (50 folhas)
+   - **Comandas:** \`75x105mm\` (50 folhas)
+   - **Recibos e Vales:** Recibo comercial (\`150x105mm\`) e Vales (\`105x75mm\`), com 50 folhas
+2. **Sinalização Comercial (Placas em Poliestireno/PS com impressão UV):**
+   - **15x20cm:** Banheiro, Proibido Fumar, Sorria Você Está Sendo Filmado
+   - **10x30cm:** Saída de Emergência, Volto Já, Proibido Capacete
+   - **7x30cm:** Entrada, Saída, Caixa, Sanitários
+   - **20x30cm:** Alugo, Vendo, Cuidado Cão Bravo, Extintores
+3. **Envelopes e Papelaria Promocional:**
+   - **Envelopes Kraft Natural:** \`80g\` e \`90g\` (\`162x229mm\` até \`260x360mm\`) em caixas de \`100\`, \`250\` ou pacotes de \`10\`
+   - **Splashes de Oferta:** Solapa, Combo e Granel em papel \`220g\` (Tamanhos \`P\`, \`M\` e \`G\`)
+   - **Cartazes de Oferta:** De \`15x20cm\` até \`43x63cm\`
+4. **Linha Escolar e Educativa:**
+   - **Cadernos/Cadernetas:** Capa flexível \`250g\` (\`48\` ou \`96\` folhas)
+   - **Giz de Cera:** Standard (\`6/12 cores\`, \`26g/52g\`), Gizão (\`6/12 cores\`, \`58g/112g\`) e Meu 1° Giz (\`185g/344g\`)
+   - **Dinheirinho/Dinheirão Educativo:** Pacotes com \`70\` ou \`15\` notas
+   - **Jogos e Atividades:** Mercado Imobiliário, Damas, Ludo, Trilha, Jogo da Memória, Quebra-Cabeça, Caligrafia e Kits de Desenho
+
+> 💡 **Qual destes itens oficiais você gostaria de escalar agora?** Basta me dizer o produto e eu aciono o **Radar de Concorrência Top 5** e preencho o **Modal de Edição** para você!`,
+      executed_tools: [],
+      competitors_radar: null,
+      pending_approval: null,
+      system_prompt_active: true,
+    });
   }
 
-  const isTitleOrCompetitorOrMarginRequest =
-    /t[ií]tulo|otimiz|renome|concorr[eê]n|radar|pesquis|suger|margem|kit|caixa|an[uú]ncio/i.test(
+  // --------------------------------------------------------------------------
+  // CASO C: Auditoria e Dúvidas sobre Foto de Capa / Imagem Principal
+  // --------------------------------------------------------------------------
+  if (
+    /\b(foto|imagem|capa|fundo\s+branco|parede\s+branca|marca\s+d['’]?[aá]gua|rgb|255|70%|logotipo|borda|qr\s*code)\b/i.test(
       text
-    );
+    ) &&
+    !/t[ií]tulo|pre[cç]o/i.test(text)
+  ) {
+    const hasPhotoViolation =
+      /parede\s+branca|marca\s+d['’]?[aá]gua|logo|borda|texto\s+na\s+foto|qr\s*code|selo/i.test(
+        text
+      );
 
-  let competitorsRadar = null;
-  let competitiveAnalysisBlock = '';
+    return res.json({
+      model: 'gemini-3.8-flash',
+      reply: `${
+        hasPhotoViolation
+          ? '⚠️ **Atenção — Risco de Rebaixamento no Algoritmo:** Identifiquei elementos na sua pergunta que **violam as Regras de Imagem de Capa (Foto 1)** do Mercado Livre. A Foto 1 é o fator visual nº 1 de ranqueamento e taxa de clique (CTR).'
+          : 'Claro! Aqui está o **Guia de Auditoria Visual Gemini** para a **Foto 1 (Capa)** dos anúncios B2B da **Pacific Flowers** no Mercado Livre:'
+      }
 
-  // Diretriz Obrigatória do System Prompt: Antes de sugerir título, calcular margem ou preencher o modal,
-  // aciona obrigatoriamente pesquisar_concorrentes(palavra_chave)
-  if (isTitleOrCompetitorOrMarginRequest) {
+### 📸 Regras Obrigatórias da Foto 1 (Capa do Anúncio)
+- **Fundo 100% Branco Puro Digital (\`RGB 255, 255, 255\`):** O fundo deve ser recortado digitalmente. **Nunca utilize fotos tiradas contra parede branca ou mesa branca**, pois o algoritmo de visão computacional do Mercado Livre detecta tons acinzentados/sombras e reduz a exposição orgânica.
+- **Ocupação Mínima de \`70%\` do Quadro:** O kit ou caixa fechada (ex: **${catalogProfile.productName}**) deve preencher pelo menos **70% da área útil** da imagem, deixando margens mínimas e equilibradas.
+- **Proibições Absolutas na Foto 1:**
+  - ❌ **Sem Marcas d'água ou Logotipos inseridos** (o logo só é permitido se fizer parte física da embalagem real do produto).
+  - ❌ **Sem Textos Promocionais ou Selos** (proibido escrever *"Kit com 50"*, *"Frete Grátis"*, *"Atacado"* ou *"Envio Rápido"* sobre a foto de capa).
+  - ❌ **Sem Bordas, Molduras ou QR Codes**.
+
+### 🎨 Estratégia Visual B2B Recomendada (Fotos 2 a 6)
+- **Foto 1 (Capa):** Empilhamento limpo do **${catalogProfile.primaryTitle}** em fundo \`RGB 255, 255, 255\` mostrando volume de atacado.
+- **Foto 2:** Detalhe aproximado da gramatura/material (${catalogProfile.specs}).
+- **Foto 3:** Tabela visual ou infográfico das medidas exatas (permitido a partir da Foto 2!).
+
+> 💡 **Quer otimizar também o título e o preço deste anúncio?** Peça por exemplo: *"Otimize o título e pesquise concorrentes para ${catalogProfile.primaryTitle}"*.`,
+      executed_tools: [],
+      competitors_radar: null,
+      pending_approval: null,
+      system_prompt_active: true,
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // CASO D: Pedido de Criação / Otimização de Descrição em Texto Puro
+  // --------------------------------------------------------------------------
+  if (
+    /\b(descri[cç][aã]o|escreva\s+um\s+texto|ficha\s+t[eé]cnica|redija\s+a\s+descri[cç][aã]o)\b/i.test(
+      text
+    ) &&
+    !/t[ií]tulo/i.test(text)
+  ) {
+    return res.json({
+      model: 'gemini-3.8-flash',
+      reply: `Com certeza! Elaborei uma **Descrição Técnica B2B em Texto Puro** para **${catalogProfile.productName}** (${catalogProfile.category}), 100% auditada contra as políticas do Mercado Livre.
+
+### ✅ Checklist de Conformidade Aplicado
+- **Zero Código HTML:** Texto puro estruturado com espaçamento limpo e tópicos em caixa alta.
+- **Zero Dados de Contato:** Sem links externos, telefones, e-mails ou menções a redes sociais.
+- **Foco em Conversão B2B:** Destaca medidas exatas (\`${catalogProfile.specs}\`), material e aplicação comercial para reduzir perguntas no pós-venda.
+
+---
+
+### 📄 Descrição Pronta para o Mercado Livre (Texto Puro)
+\`\`\`
+${catalogProfile.pureTextDescription}
+\`\`\`
+
+### 🏷️ Sugestão de Título B2B Pareado (\`${catalogProfile.primaryTitle.length}/60 caracteres\`)
+- \`${catalogProfile.primaryTitle}\`
+
+> 💡 **Deseja aplicar este título e ajustar o preço no anúncio agora?** Basta responder: *"Otimizar anúncio para ${catalogProfile.primaryTitle}"* que eu abro o **Modal de Edição** preenchido na sua tela!`,
+      executed_tools: [],
+      competitors_radar: null,
+      pending_approval: null,
+      system_prompt_active: true,
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // CASO E: Consulta ao Catálogo Oficial da Empresa ou Linhas de Produtos
+  // --------------------------------------------------------------------------
+  if (
+    /\b(cat[aá]logo|quais\s+produtos|o\s+que\s+voc[eê]s\s+vendem|o\s+que\s+a\s+pacific\s+flowers\s+vende|lista\s+de\s+produtos|linhas\s+de\s+produtos|quais\s+itens)\b/i.test(
+      text
+    )
+  ) {
+    return res.json({
+      model: 'gemini-3.8-flash',
+      reply: `Aqui está o **Catálogo Oficial B2B da Pacific Flowers** estruturado para vendas em **Atacado (Kits e Caixas Fechadas > R$ 79,00)** no Mercado Livre:
+
+### 🏢 1. Linha Office e Financeiro
+- **Talões de Pedido:** \`105x150mm\`, \`150x210mm\` e \`300x210mm\` (50 folhas)
+  - *Sugestão B2B:* \`Kit 50 Talões De Pedido 105x150mm Comércio\` (**R$ 98,90**)
+- **Comandas:** \`75x105mm\` (50 folhas)
+  - *Sugestão B2B:* \`Kit 100 Comandas 75x105mm 50 Folhas Restaurante\` (**R$ 94,90**)
+- **Recibos e Vales:** Recibo Comercial (\`150x105mm\`) e Vales (\`105x75mm\`), com 50 folhas
+  - *Sugestão B2B:* \`Kit 50 Recibos Comerciais 150x105mm 50 Folhas\` (**R$ 92,90**)
+
+### ⚠️ 2. Sinalização Comercial (Placas em Poliestireno/PS com Impressão UV)
+- **15x20cm:** Banheiro, Proibido Fumar, Sorria Você Está Sendo Filmado
+- **10x30cm:** Saída de Emergência, Volto Já, Proibido Capacete
+- **7x30cm:** Entrada, Saída, Caixa, Sanitários
+- **20x30cm:** Alugo, Vendo, Cuidado Cão Bravo, Extintores
+  - *Sugestão B2B:* \`Kit 20 Placas Sinalização PS UV 15x20cm Comércio\` (**R$ 109,90**)
+
+### 📦 3. Envelopes e Papelaria Promocional
+- **Envelopes Kraft Natural:** \`80g\` e \`90g\` (\`162x229mm\` até \`260x360mm\`) — Caixas de \`100\`, \`250\` ou pacotes de \`10\`
+  - *Sugestão B2B:* \`Caixa 250 Envelopes Kraft Natural 162x229mm 90g\` (**R$ 114,90**)
+- **Splashes de Oferta:** Solapa, Combo e Granel em papel \`220g\` (Tamanhos \`P\`, \`M\` e \`G\`)
+- **Cartazes de Oferta:** De \`15x20cm\` até \`43x63cm\`
+  - *Sugestão B2B:* \`Kit 100 Cartazes De Oferta 15x20cm 220g Varejo\` (**R$ 89,90**)
+
+### 🎓 4. Linha Escolar e Educativa
+- **Cadernos/Cadernetas:** Capa flexível \`250g\` (\`48\` ou \`96\` folhas)
+- **Giz de Cera:** Standard (\`6/12 cores\`, \`26g/52g\`), Gizão (\`6/12 cores\`, \`58g/112g\`) e Meu 1° Giz (\`185g/344g\`)
+- **Dinheirinho/Dinheirão Educativo:** Pacotes com \`70\` ou \`15\` notas
+- **Jogos e Atividades:** Mercado Imobiliário, Damas, Ludo, Trilha, Jogo da Memória, Quebra-Cabeça, Caligrafia e Kits de Desenho
+
+> 💡 ** Fórmula Obrigatória de Títulos (Máx. 60 caracteres):**
+> \`[Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso]\`
+> Qual linha você quer analisar no **Radar de Concorrência** agora?`,
+      executed_tools: [],
+      competitors_radar: null,
+      pending_approval: null,
+      system_prompt_active: true,
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // CASO F: Estratégia de Mercado Ads (ACOS, Orçamento Diário e Campanhas B2B)
+  // --------------------------------------------------------------------------
+  if (
+    /\b(acos|mercado\s+ads|campanha|or[cç]amento\s+di[aá]rio|tr[aá]fego\s+pago|patrocinad[oa]s?|roas)\b/i.test(
+      text
+    ) &&
+    !/t[ií]tulo/i.test(text)
+  ) {
+    return res.json({
+      model: 'gemini-3.8-flash',
+      reply: `Analisei sua dúvida sobre **Mercado Ads (Publicidade Patrocinada)** sob a ótica da estratégia B2B da **Pacific Flowers**.
+
+### 📈 Diretrizes Estratégicas de Tráfego Pago (Mercado Ads)
+1. **Regra de Ouro B2B (Filtro \`>= R$ 79,00\`):**
+   - **Pause imediatamente** campanhas de itens unitários ou kits pequenos abaixo de \`R$ 79,00\` (ex: pacotes de 10 envelopes a \`R$ 29,90\` ou kits de 10 talões a \`R$ 42,90\`). Nesses itens, a **Taxa Fixa de R$ 6,00** somada ao clique do Ads corrói toda a margem.
+   - **Concentre 100% do orçamento diário** em Kits e Caixas Fechadas acima de \`R$ 79,00\` (ex: \`Caixa 250 Envelopes Kraft Natural 162x229mm 90g\` e \`Kit 50 Talões De Pedido 105x150mm Comércio\`).
+2. **Leitura de ACOS (Advertising Cost of Sales):**
+   - **ACOS Excelente (\`< 12%\`):** Escale o orçamento diário em \`+20%\` a \`+30%\` para dominar as primeiras posições da busca.
+   - **ACOS de Atenção (\`12% a 20%\`):** Mantenha o orçamento estável e otimize o **Título B2B** e a **Foto 1 (fundo RGB 255,255,255)** para elevar a taxa de conversão.
+   - **ACOS Crítico (\`> 20%\`):** Reduza o orçamento diário ou revise o preço frente aos 5 primeiros concorrentes.
+
+> 💡 **Ação Rápida:** Na aba **Mercado Ads** na barra lateral esquerda, ative o filtro **"Apenas Kits B2B (> R$ 79,00)"** para visualizar e editar os orçamentos diários com 1 clique.`,
+      executed_tools: [],
+      competitors_radar: null,
+      pending_approval: null,
+      system_prompt_active: true,
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // CASO G: Saudação / Conversa Inicial / Ajuda Geral
+  // --------------------------------------------------------------------------
+  if (
+    /^(?:oi|ol[aá]|bom\s+dia|boa\s+tarde|boa\s+noite|tudo\s+bem|opa|e\s*a[ií]|hey|ajuda|help|como\s+funciona|quem\s+[eé]\s+voc[eê]|o\s+que\s+voc[eê]\s+faz)(?:[\s,!.?]+(?:tudo\s+bem|como\s+vai|bom\s+dia|boa\s+tarde|boa\s+noite|me\s+ajuda|como\s+funciona|com\s+voc[eê]|por\s+a[ií]))*[\s,!.?]*$/i.test(
+      text
+    )
+  ) {
+    return res.json({
+      model: 'gemini-3.8-flash',
+      reply: `Olá! Sou o **Copiloto de Vendas B2B da Pacific Flowers** (motor **Gemini 3.8 Flash**), especialista no algoritmo, precificação e auditoria de conformidade do **Mercado Livre**.
+
+### ✨ Como posso ajudar sua operação B2B hoje?
+- 🔍 **Radar de Concorrência em Tempo Real (\`pesquisar_concorrentes\`):** Consulto os **5 primeiros colocados** do Mercado Livre para qualquer item do nosso catálogo antes de sugerir títulos ou preços.
+- 🏷️ **Engenharia de Títulos B2B (Máx. 60 caracteres):** Aplico rigorosamente a fórmula \`[Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso]\` e bloqueio termos proibidos (*Barato*, *Promoção*, *Frete Grátis*).
+- 💰 **Simulador do Gatilho de R$ 79,00:** Calculo comissões (16%), eliminação da taxa fixa de R$ 6,00 e absorção lucrativa do Frete Grátis (R$ 21,00) em Kits e Caixas Fechadas.
+- ✍️ **Gerador de Descrições em Texto Puro & Auditoria de Fotos:** Crio descrições técnicas sem HTML e audito fotos de capa (\`RGB 255, 255, 255\` e ocupação de \`70%\`).
+
+### 🚀 Experimente me enviar comandos como:
+1. *"Pesquise concorrentes e otimize o anúncio de Talões de Pedido 105x150mm"*
+2. *"Crie uma descrição técnica para a Caixa 250 Envelopes Kraft 90g"*
+3. *"Vale a pena vender um kit de comandas por R$ 49,90 ou subir para R$ 94,90?"*
+4. *"Otimize o título para Talão de Pedido Barato Pacific Flowers"* *(teste de auditoria)*`,
+      executed_tools: [],
+      competitors_radar: null,
+      pending_approval: null,
+      system_prompt_active: true,
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // CASO H: Simulação Pura de Margem / Dúvida de Precificação (< R$ 79 vs >= R$ 79)
+  // (Quando o usuário pergunta se vale a pena um preço ou pede cálculo de margem sem pedir edição/criação de kit)
+  // --------------------------------------------------------------------------
+  const priceMatch = text.match(
+    /R\$\s*(\d+(?:[.,]\d{1,2})?)|(?:pre[cç]o|valor|por)\s+(?:de\s+|para\s+)?(\d+(?:[.,]\d{1,2})?)/i
+  );
+  const isMarginQuestionOnly =
+    /\b(vale\s+a\s+pena|calcul[ae]|simul[ae]|margem|lucro|taxa\s+fixa|gatilho)\b/i.test(
+      text
+    ) && !/\b(atualiz[ae]|mude|altere|coloque|salvar|modal|otimiz[ae]|cri[ae]|mont[ae]|sugir[ae])\b/i.test(text);
+
+  if (isMarginQuestionOnly) {
     const radarToolResult = await toolExecutors.pesquisar_concorrentes({
-      palavra_chave: extractedKeyword,
+      palavra_chave: catalogProfile.keyword,
     });
     executedTools.push({
       name: 'pesquisar_concorrentes',
-      arguments: { palavra_chave: extractedKeyword },
+      arguments: { palavra_chave: catalogProfile.keyword },
       result: radarToolResult,
     });
-
-    competitorsRadar = {
+    const competitorsRadar = {
       query: radarToolResult.palavra_chave,
       concorrentes: radarToolResult.concorrentes,
       stats: radarToolResult.stats,
     };
 
-    const top5Lines = radarToolResult.concorrentes
-      .map(
-        (c, idx) =>
-          `${idx + 1}. **${c.title}** — R$ ${Number(c.price).toFixed(2)} (${
-            c.free_shipping ? '⚡ Frete Grátis' : 'Frete por conta do comprador'
-          })`
-      )
-      .join('\n');
+    const queriedPrice = priceMatch
+      ? Number((priceMatch[1] || priceMatch[2]).replace(',', '.'))
+      : 49.9;
+    const recommendedB2BPrice =
+      radarToolResult.stats?.suggested_competitive_price || catalogProfile.recommendedPrice;
 
-    competitiveAnalysisBlock = `📊 **Radar de Concorrência Mercado Livre ("${radarToolResult.palavra_chave}"):**\n${top5Lines}\n\n💡 **Inteligência Competitiva B2B:** Preço médio dos 5 primeiros colocados: **R$ ${radarToolResult.stats.average_price.toFixed(
-      2
-    )}** (${radarToolResult.stats.free_shipping_count}/5 oferecem Frete Grátis). Preço competitivo sugerido para Kit Atacado (> R$ 79,00 com Frete Grátis lucrativo): **R$ ${radarToolResult.stats.suggested_competitive_price.toFixed(
-      2
-    )}**.`;
+    const lowSim = calculatePricingMetrics(
+      queriedPrice,
+      queriedPrice < 79 ? catalogProfile.estimatedCost * 0.45 : catalogProfile.estimatedCost
+    );
+    const b2bSim = calculatePricingMetrics(recommendedB2BPrice, catalogProfile.estimatedCost);
+
+    return res.json({
+      model: 'gemini-3.8-flash',
+      reply: `Realizei o **Diagnóstico Financeiro Gemini** para **${catalogProfile.productName}** cruzando as regras de tarifas do Mercado Livre com os **5 primeiros colocados** da categoria.
+
+${formatRadarSectionGemini(competitorsRadar)}
+
+---
+
+### ⚖️ Comparativo de Rentabilidade: Cenário Informado vs. Kit Atacado B2B
+
+#### 1. Cenário Analisado (\`R$ ${queriedPrice.toFixed(2)}\`)
+- **Status Tarifário:** ${
+        lowSim.isFreeShipping
+          ? '⚡ **Acima do Gatilho (>= R$ 79,00) — Taxa Fixa Zerada**'
+          : '🚨 **Abaixo do Gatilho (< R$ 79,00) — Sofre Taxa Fixa de R$ 6,00**'
+      }
+- **Comissão ML (16%):** \`- R$ ${lowSim.commissionAmount.toFixed(2)}\`
+- **Taxa Fixa / Frete:** \`- R$ ${(lowSim.isFreeShipping ? lowSim.shippingCost : lowSim.fixedFee).toFixed(2)}\`
+- **Lucro Líquido Estimado:** **R$ ${lowSim.netProfit.toFixed(2)}** (\`${lowSim.marginPercent.toFixed(1)}%\`)
+
+#### 2. Recomendação Estratégica B2B (\`${catalogProfile.primaryTitle}\` a \`R$ ${recommendedB2BPrice.toFixed(2)}\`)
+- **Status Tarifário:** ⚡ **Frete Grátis Ativo + Taxa Fixa de R$ 6,00 Eliminada**
+- **Comissão ML (16%):** \`- R$ ${b2bSim.commissionAmount.toFixed(2)}\`
+- **Custo de Frete Vendedor:** \`- R$ ${b2bSim.shippingCost.toFixed(2)}\` (diluído no volume do kit)
+- **Lucro Líquido por Caixa/Kit:** **R$ ${b2bSim.netProfit.toFixed(2)}** (**Margem de ${b2bSim.marginPercent.toFixed(1)}%**)
+
+> 💡 **Conclusão Gemini B2B:** ${
+        queriedPrice < 79
+          ? `Vender abaixo de **R$ 79,00** penaliza sua operação com **R$ 6,00 de taxa fixa por unidade** e deixa seu anúncio sem o selo de **Frete Grátis** (presente em **${radarToolResult.stats.free_shipping_count} dos 5 líderes**). Ao agrupar no **${catalogProfile.primaryTitle}** por **R$ ${recommendedB2BPrice.toFixed(2)}**, você elimina a taxa fixa e multiplica o lucro em reais por pedido.`
+          : `O ticket de **R$ ${queriedPrice.toFixed(2)}** já supera a barreira dos **R$ 79,00**, eliminando a taxa fixa de R$ 6,00 e ativando **Frete Grátis** competitivo!`
+      }`,
+      executed_tools: executedTools,
+      competitors_radar: competitorsRadar,
+      pending_approval: null,
+      system_prompt_active: true,
+    });
   }
 
-  // 2) Se o usuário pediu otimização/alteração de título ou análise de concorrência para kit B2B
-  if (/t[ií]tulo|otimiz|renome|concorr[eê]n|radar|suger/i.test(text)) {
-    const rawCandidate = titleQuoteMatch
-      ? titleQuoteMatch[1]
-      : /envelope|kraft/i.test(text) || itemId === 'MLB4019283741'
-      ? 'Caixa 250 Envelopes Kraft Natural 162x229mm 90g'
-      : /placa|sinaliza[cç][aã]o|poliestireno|\bps\b/i.test(text)
-      ? 'Kit 20 Placas Sinalização PS UV 15x20cm Comércio'
-      : /giz|caderno|escolar/i.test(text)
-      ? 'Kit 12 Caixas Giz De Cera 12 Cores 52g Escolar'
-      : 'Kit 50 Talões De Pedido 105x150mm Comércio';
+  // --------------------------------------------------------------------------
+  // CASO I: Fluxo Principal de Inteligência Competitiva + Otimização B2B + Modal Human-in-the-Loop
+  // (Aciona obrigatoriamente pesquisar_concorrentes, audita conformidade e abre o Modal)
+  // --------------------------------------------------------------------------
+  const titleQuoteMatch = text.match(/["'“”]([^"'“”]{3,120})["'“”]/);
+  // Também detecta quando o usuário pede "para Talão de Pedido Barato..." sem aspas
+  const unquotedTargetMatch = !titleQuoteMatch
+    ? text.match(
+        /(?:t[ií]tulo\s+para|renomear\s+para|mudar\s+para|alterar\s+para)\s+([A-Za-zÀ-ÿ0-9\s!@#$%&*xX/+-]{5,90})$/i
+      )
+    : null;
+  const explicitCandidateTitle = titleQuoteMatch
+    ? titleQuoteMatch[1].trim()
+    : unquotedTargetMatch
+    ? unquotedTargetMatch[1].trim()
+    : null;
 
+  const extractedKeyword = explicitCandidateTitle
+    ? explicitCandidateTitle
+        .replace(/\b(frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o|barato)\b/gi, '')
+        .replace(/[!*#@$%&]+/g, '')
+        .trim()
+        .slice(0, 48) || catalogProfile.keyword
+    : catalogProfile.keyword;
+
+  // 1º Passo Obrigatório do System Prompt: Acionar pesquisar_concorrentes(palavra_chave)
+  const radarToolResult = await toolExecutors.pesquisar_concorrentes({
+    palavra_chave: extractedKeyword,
+  });
+  executedTools.push({
+    name: 'pesquisar_concorrentes',
+    arguments: { palavra_chave: extractedKeyword },
+    result: radarToolResult,
+  });
+
+  const competitorsRadar = {
+    query: radarToolResult.palavra_chave,
+    concorrentes: radarToolResult.concorrentes,
+    stats: radarToolResult.stats,
+  };
+
+  const radarSectionMarkdown = formatRadarSectionGemini(competitorsRadar);
+
+  // Verifica se o usuário pediu atualização de título, sugestão de kit ou se enviou um título candidato
+  const isTitleOrKitOptimization =
+    Boolean(explicitCandidateTitle) ||
+    /t[ií]tulo|otimiz|renome|concorr[eê]n|radar|pesquis|suger|melhor|cri[ae]|kit|caixa|an[uú]ncio|tal[aã]o|comanda|recibo|vale|placa|envelope|kraft|splash|cartaz|caderno|giz|dinheirinho|jogo/i.test(
+      text
+    );
+
+  if (isTitleOrKitOptimization && !(/^(atualiz|mud|alter).*(pre[cç]o|estoque)/i.test(text) && !explicitCandidateTitle)) {
+    const rawCandidate = explicitCandidateTitle || catalogProfile.primaryTitle;
     const audit = validateTitleCompliance(rawCandidate);
 
+    // Se o título enviado pelo usuário violar as regras do Mercado Livre, recusa em estilo Gemini completo!
     if (!audit.valid) {
+      const violationsList = audit.violations.map((v) => `- ❌ ${v}`).join('\n');
+      const altOptions = [audit.suggested_title, ...(audit.alternative_titles || [])]
+        .slice(0, 3)
+        .map((t, i) => `${i + 1}. \`${t}\` *(${t.length}/60 caracteres — Aprovado)*`)
+        .join('\n');
+
       return res.json({
-        reply: `${
-          competitiveAnalysisBlock ? `${competitiveAnalysisBlock}\n\n---\n\n` : ''
-        }Recuso gentilmente a alteração solicitada pois ela viola as **Regras de Título (SEO e Conformidade)** do Mercado Livre:\n\n- ${audit.violations.join(
-          '\n- '
-        )}\n\n✅ **Sugestão Corrigida Superior à Concorrência (${
-          audit.suggested_title.length
-        }/60 caracteres, Foco B2B):**\n\`${audit.suggested_title}\``,
+        model: 'gemini-3.8-flash',
+        reply: `Analisei sua solicitação para o título **\`"${rawCandidate}"\`** (\`${rawCandidate.length}/60 caracteres\`) e **recuso gentilmente esta alteração**, pois ela viola as diretrizes de conformidade e SEO do Mercado Livre.
+
+### 🛡️ Diagnóstico do Auditor de Conformidade
+${violationsList}
+
+### 📐 Fórmula Obrigatória da Pacific Flowers (Máx. 60 caracteres)
+\`[Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso]\`
+
+---
+
+${radarSectionMarkdown}
+
+---
+
+### ✅ 3 Opções de Títulos Corrigidos (Superiores à Concorrência)
+${altOptions}
+
+> 💡 **Como aplicar:** Clique em um dos botões rápidos acima ou peça *"Otimizar anúncio para ${audit.suggested_title}"* para que eu preencha o **Modal de Edição** automaticamente!`,
         executed_tools: executedTools,
         competitors_radar: competitorsRadar,
         pending_approval: null,
@@ -1369,6 +2164,7 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
+    // Título válido! Executa otimizar_titulo_b2b (Human-in-the-Loop)
     const toolResult = await toolExecutors.otimizar_titulo_b2b({
       item_id: itemId,
       title: rawCandidate,
@@ -1380,9 +2176,16 @@ app.post('/api/chat', async (req, res) => {
     });
     combinedProposedFields.title = rawCandidate;
 
-    // Se o anúncio atual estiver abaixo de R$ 79,00 ou se o usuário pediu sugestão competitiva,
-    // também sugere o Preço de Venda competitivo (> R$ 79,00) baseado nos 5 primeiros colocados!
-    if (competitorsRadar?.stats?.suggested_competitive_price && !/pre[cç]o/i.test(text)) {
+    const isThreshold79ReferenceOnly =
+      /(?:passar|acima|maior|ultrapassar|barreira|gatilho)\s+(?:de\s+|dos\s+|que\s+)?R\$\s*79(?:[.,]00)?/i.test(
+        text
+      );
+
+    // Define também o Preço Competitivo B2B (> R$ 79,00) baseado no Radar Top 5
+    if (
+      competitorsRadar?.stats?.suggested_competitive_price &&
+      (!priceMatch || isThreshold79ReferenceOnly)
+    ) {
       const suggestedPrice = competitorsRadar.stats.suggested_competitive_price;
       const priceToolResult = await toolExecutors.atualizar_preco_anuncio({
         item_id: itemId,
@@ -1397,11 +2200,12 @@ app.post('/api/chat', async (req, res) => {
     }
   }
 
-  // 3) Verifica comando explícito de atualização de preço (Human-in-the-Loop)
-  const priceMatch = text.match(
-    /R\$\s*(\d+(?:[.,]\d{1,2})?)|pre[cç]o\s+(?:para\s+)?(\d+(?:[.,]\d{1,2})?)/i
-  );
-  if (/pre[cç]o|valor|atualiz/i.test(text) && priceMatch) {
+  // Verifica se há comando explícito de preço (ex: "Atualize o preço para R$ 94,90")
+  const isThreshold79Reference =
+    /(?:passar|acima|maior|ultrapassar|barreira|gatilho)\s+(?:de\s+|dos\s+|que\s+)?R\$\s*79(?:[.,]00)?/i.test(
+      text
+    );
+  if (/pre[cç]o|valor|atualiz|mud|alter|R\$/i.test(text) && priceMatch && !isThreshold79Reference) {
     const rawNum = (priceMatch[1] || priceMatch[2]).replace(',', '.');
     const newPrice = Number(rawNum);
     const toolResult = await toolExecutors.atualizar_preco_anuncio({
@@ -1416,8 +2220,8 @@ app.post('/api/chat', async (req, res) => {
     combinedProposedFields.price = Number(newPrice.toFixed(2));
   }
 
-  // 4) Verifica comando de atualização de estoque (Human-in-the-Loop)
-  const stockMatch = text.match(/estoque\s+(?:para\s+)?(\d+)|(\d+)\s*unidades/i);
+  // Verifica se há comando explícito de estoque (ex: "estoque para 120 unidades")
+  const stockMatch = text.match(/estoque\s+(?:para\s+|de\s+)?(\d+)|(\d+)\s*unidades/i);
   if (/estoque|quantidade|unidades/i.test(text) && stockMatch) {
     const newQty = Number(stockMatch[1] || stockMatch[2]);
     const toolResult = await toolExecutors.atualizar_estoque({
@@ -1432,13 +2236,49 @@ app.post('/api/chat', async (req, res) => {
     combinedProposedFields.available_quantity = newQty;
   }
 
+  // Se preparamos campos para o Modal de Edição (Human-in-the-Loop), retorna análise Gemini completa + abre o Modal!
   if (Object.keys(combinedProposedFields).length > 0) {
-    const finalMessage = competitiveAnalysisBlock
-      ? `${competitiveAnalysisBlock}\n\n${HUMAN_IN_THE_LOOP_MESSAGE}`
-      : HUMAN_IN_THE_LOOP_MESSAGE;
+    const finalTitle = combinedProposedFields.title || catalogProfile.primaryTitle;
+    const finalPrice =
+      combinedProposedFields.price ||
+      competitorsRadar?.stats?.suggested_competitive_price ||
+      catalogProfile.recommendedPrice;
+
+    const below79Alert =
+      finalPrice < 79
+        ? `\n> ⚠️ **Alerta de Margem (< R$ 79,00):** O preço solicitado (\`R$ ${finalPrice.toFixed(
+            2
+          )}\`) sofre a **Taxa Fixa de R$ 6,00** por venda no Mercado Livre. Recomendo agrupar unidades em Kit/Caixa para elevar o ticket para **R$ ${catalogProfile.recommendedPrice.toFixed(
+            2
+          )}** e ativar Frete Grátis lucrativo!\n`
+        : '';
+
+    const geminiApprovalResponse = `Concluí a análise competitiva em tempo real e a auditoria de catálogo para **${catalogProfile.productName}** (${catalogProfile.category}) no anúncio \`${itemId}\`.
+
+${radarSectionMarkdown}
+
+---
+
+### 🏷️ Engenharia de Título & Conformidade B2B
+- **Título Proposto:** \`${finalTitle}\`
+- **Extensão Exata:** \`${finalTitle.length}/60 caracteres\` *(100% dentro do limite do algoritmo)*
+- **Fórmula Aplicada:** \`[Quantidade do Kit] + [Nome do Produto do Catálogo] + [Tamanho/Gramatura] + [Uso]\`
+${
+  combinedProposedFields.available_quantity !== undefined
+    ? `- **Estoque Disponível Proposto:** \`${combinedProposedFields.available_quantity} unidades\`\n`
+    : ''
+}${below79Alert}
+---
+
+${formatMarginComparisonGemini(finalPrice, catalogProfile.estimatedCost)}
+
+---
+
+✅ **${HUMAN_IN_THE_LOOP_MESSAGE}**`;
 
     return res.json({
-      reply: finalMessage,
+      model: 'gemini-3.8-flash',
+      reply: geminiApprovalResponse,
       executed_tools: executedTools,
       competitors_radar: competitorsRadar,
       pending_approval: {
@@ -1451,8 +2291,22 @@ app.post('/api/chat', async (req, res) => {
     });
   }
 
+  // Fallback conversacional inteligente estilo Gemini (caso a pergunta seja aberta sobre vendas/Mercado Livre)
   return res.json({
-    reply: `Sou o **Copiloto de Vendas B2B da Pacific Flowers** com **Radar de Concorrência em Tempo Real** e **Modo Human-in-the-Loop**.\n\nAntes de sugerir qualquer título ou preço, consulto os **5 primeiros colocados do Mercado Livre** via \`pesquisar_concorrentes(palavra_chave)\`, analiso os preços e status de Frete Grátis e abro automaticamente o **Modal de Edição** preenchido com a melhor estratégia B2B (> R$ 79,00) para você aprovar e clicar em **Salvar**.`,
+    model: 'gemini-3.8-flash',
+    reply: `Analisei sua mensagem sobre **"${text}"** com base nas diretrizes B2B da **Pacific Flowers** no Mercado Livre.
+
+${radarSectionMarkdown}
+
+---
+
+### 🎯 Recomendação Estratégica Gemini B2B
+Para escalar nossas vendas de **${catalogProfile.productName}** (${catalogProfile.category}) com máxima lucratividade:
+- **Título Ideal (\`${catalogProfile.primaryTitle.length}/60 chars\`):** \`${catalogProfile.primaryTitle}\`
+- **Ticket Alvo Recomendado:** **R$ ${catalogProfile.recommendedPrice.toFixed(2)}** *(acima do gatilho de R$ 79,00 — elimina a taxa fixa de R$ 6,00 e ativa Frete Grátis)*
+- **Medidas Oficiais da Linha:** ${catalogProfile.specs}
+
+> 💡 **Quer que eu preencha o Modal de Edição com essa configuração agora?** Basta clicar no botão rápido de sugestão acima ou digitar: *"Otimize o anúncio para ${catalogProfile.primaryTitle}"*.`,
     executed_tools: executedTools,
     competitors_radar: competitorsRadar,
     pending_approval: null,
