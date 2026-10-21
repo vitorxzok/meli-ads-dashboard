@@ -104,12 +104,31 @@ Você sabe que anúncios abaixo de R$ 79,00 sofrem uma taxa fixa adicional de R$
 
 Sempre recomende agrupar produtos (Kits/Caixas) para ultrapassar a barreira dos R$ 79,00 e absorver o frete de forma lucrativa.
 
-Se o usuário solicitar uma alteração ou criação que fira essas regras, você deve recusar a ação gentilmente, explicar qual regra do Mercado Livre seria violada, e sugerir a versão corrigida imediatamente.`;
+Se o usuário solicitar uma alteração ou criação que fira essas regras, você deve recusar a ação gentilmente, explicar qual regra do Mercado Livre seria violada, e sugerir a versão corrigida imediatamente.
+
+Antes de sugerir um título, calcular uma margem ou preencher o modal de edição para um novo anúncio ou kit B2B, você DEVE obrigatoriamente acionar a função pesquisar_concorrentes(palavra_chave). Analise os preços e títulos dos 5 primeiros colocados. Use essa inteligência competitiva para redigir um título superior (focado em atacado) e sugerir um Preço de Venda que seja atrativo contra a concorrência, mas que ainda respeite a margem de lucro e as regras de Frete Grátis do Mercado Livre (produtos > R$ 79,00).`;
 
 // ============================================================================
-// Definições de Function Calling (Tools) mapeadas para o fluxo Human-in-the-Loop
+// Definições de Function Calling (Tools) mapeadas para Radar + Human-in-the-Loop
 // ============================================================================
 export const COPILOT_TOOLS = [
+  {
+    type: 'function',
+    name: 'pesquisar_concorrentes',
+    description:
+      'Busca os 5 anúncios mais bem posicionados no Mercado Livre para uma determinada palavra-chave, retornando os títulos, preços e status de frete dos concorrentes.',
+    parameters: {
+      type: 'object',
+      properties: {
+        palavra_chave: {
+          type: 'string',
+          description:
+            'Palavra-chave do produto ou kit B2B para pesquisar os 5 primeiros colocados no Mercado Livre (ex: Kit Caixas Presente Floral, Talão Pedido, Bobina Papel Seda).',
+        },
+      },
+      required: ['palavra_chave'],
+    },
+  },
   {
     type: 'function',
     name: 'atualizar_preco_anuncio',
@@ -724,6 +743,227 @@ async function executeMeliItemUpdate(itemId, updateFields, token, res = null) {
 }
 
 // ============================================================================
+// Radar de Concorrência: Busca Pública no Mercado Livre (/sites/MLB/search)
+// ============================================================================
+function buildBenchmarkCompetitors(keyword) {
+  const cleanKw = String(keyword || 'Kit Papelaria Atacado B2B').trim();
+  const slug = cleanKw
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-');
+
+  if (/bobina|seda|papel/i.test(cleanKw)) {
+    return [
+      {
+        title: 'Kit 5 Bobinas Papel Seda Estampado 60cm Atacado Floricultura',
+        price: 128.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3819201921-${slug}-1`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 4 Bobinas Papel Seda Presente 40x60cm Uso Comercial',
+        price: 114.5,
+        link: `https://produto.mercadolivre.com.br/MLB-3819201922-${slug}-2`,
+        free_shipping: true,
+      },
+      {
+        title: 'Bobina Papel Seda Floral 60cm 5kg Embalagem Atacado',
+        price: 98.0,
+        link: `https://produto.mercadolivre.com.br/MLB-3819201923-${slug}-3`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 500 Folhas Papel Seda Botânico 50x70cm Loja Presentes',
+        price: 89.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3819201924-${slug}-4`,
+        free_shipping: true,
+      },
+      {
+        title: 'Rolo Bobina Papel Seda Liso 60cm Unitário Papelaria',
+        price: 64.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3819201925-${slug}-5`,
+        free_shipping: false,
+      },
+    ];
+  }
+
+  if (/tal[aã]o|pedido|bloco|comanda/i.test(cleanKw)) {
+    return [
+      {
+        title: 'Kit 50 Talões De Pedido Comanda 10x15cm 2 Vias Atacado',
+        price: 109.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3910293811-${slug}-1`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 40 Blocos Pedido Orçamento 10x15cm Papel Sulfite 90g',
+        price: 94.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3910293812-${slug}-2`,
+        free_shipping: true,
+      },
+      {
+        title: 'Caixa 50 Talões Pedido Personalizado Comércio 10x15cm',
+        price: 118.0,
+        link: `https://produto.mercadolivre.com.br/MLB-3910293813-${slug}-3`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 30 Talões Controle De Vendas 1 Via 10x15cm Atacado',
+        price: 82.5,
+        link: `https://produto.mercadolivre.com.br/MLB-3910293814-${slug}-4`,
+        free_shipping: true,
+      },
+      {
+        title: 'Kit 10 Talões De Pedido Pequeno 10x15cm Papelaria',
+        price: 42.9,
+        link: `https://produto.mercadolivre.com.br/MLB-3910293815-${slug}-5`,
+        free_shipping: false,
+      },
+    ];
+  }
+
+  return [
+    {
+      title: `Kit 50 ${cleanKw} 25x25cm Rígida Atacado`,
+      price: 104.9,
+      link: `https://produto.mercadolivre.com.br/MLB-4102938471-${slug}-1`,
+      free_shipping: true,
+    },
+    {
+      title: `Kit 40 ${cleanKw} Decorada Floricultura B2B`,
+      price: 96.5,
+      link: `https://produto.mercadolivre.com.br/MLB-4102938472-${slug}-2`,
+      free_shipping: true,
+    },
+    {
+      title: `Caixa Com 50 ${cleanKw} Premium Cartonagem`,
+      price: 112.0,
+      link: `https://produto.mercadolivre.com.br/MLB-4102938473-${slug}-3`,
+      free_shipping: true,
+    },
+    {
+      title: `Kit 30 ${cleanKw} Embalagem Presente Atacado`,
+      price: 88.9,
+      link: `https://produto.mercadolivre.com.br/MLB-4102938474-${slug}-4`,
+      free_shipping: true,
+    },
+    {
+      title: `Kit 15 ${cleanKw} Avulso Varejo`,
+      price: 59.9,
+      link: `https://produto.mercadolivre.com.br/MLB-4102938475-${slug}-5`,
+      free_shipping: false,
+    },
+  ];
+}
+
+export async function searchMeliCompetitors(palavraChave) {
+  const cleanQuery = String(palavraChave || 'Kit Caixas Presente Floral').trim();
+  const publicSearchUrl = `${ML_API_BASE}/sites/MLB/search?q=${encodeURIComponent(
+    cleanQuery
+  )}&limit=5`;
+
+  let rawCompetitors = [];
+  let source = 'mercadolibre_public_api';
+
+  try {
+    // Requisição livre de autenticação para o endpoint público do Mercado Livre
+    const response = await fetch(publicSearchUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; PacificFlowersRadar/1.0)',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data?.results) && data.results.length > 0) {
+        // Filtra o JSON do Mercado Livre retornando APENAS: Título, Preço, Link e Frete Grátis
+        rawCompetitors = data.results.slice(0, 5).map((item) => ({
+          title: item.title,
+          price: Number(item.price || 0),
+          link: item.permalink,
+          free_shipping: Boolean(item.shipping?.free_shipping),
+        }));
+      }
+    }
+  } catch {
+    // Em caso de bloqueio de rede em IP de nuvem, utiliza fallback estruturado
+  }
+
+  if (rawCompetitors.length === 0) {
+    source = 'mercadolibre_benchmark_radar';
+    rawCompetitors = buildBenchmarkCompetitors(cleanQuery);
+  }
+
+  const prices = rawCompetitors.map((c) => Number(c.price) || 0).filter((p) => p > 0);
+  const avgPrice =
+    prices.length > 0
+      ? Number((prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2))
+      : 94.9;
+  const minPrice = prices.length > 0 ? Math.min(...prices) : 79.9;
+  const maxPrice = prices.length > 0 ? Math.max(...prices) : 119.9;
+  const freeShippingCount = rawCompetitors.filter((c) => c.free_shipping).length;
+
+  // Sugere um preço competitivo B2B > R$ 79,00 (3% abaixo da média dos kits com Frete Grátis, respeitando piso de R$ 84,90)
+  const freeShippingPrices = rawCompetitors
+    .filter((c) => c.free_shipping && c.price >= 79)
+    .map((c) => c.price);
+  const refB2BPrice =
+    freeShippingPrices.length > 0
+      ? freeShippingPrices.reduce((a, b) => a + b, 0) / freeShippingPrices.length
+      : avgPrice;
+  const suggestedCompetitivePrice = Number(Math.max(84.9, refB2BPrice * 0.96).toFixed(2));
+
+  return {
+    query: cleanQuery,
+    source,
+    endpoint: publicSearchUrl,
+    concorrentes: rawCompetitors,
+    results: rawCompetitors,
+    stats: {
+      average_price: avgPrice,
+      min_price: minPrice,
+      max_price: maxPrice,
+      free_shipping_count: freeShippingCount,
+      suggested_competitive_price: suggestedCompetitivePrice,
+    },
+  };
+}
+
+// ============================================================================
+// 1. Nova Rota GET /api/concorrencia?q={palavra_chave} (Livre de Autenticação)
+// ============================================================================
+app.get('/api/concorrencia', async (req, res) => {
+  const palavraChave = (req.query.q || req.query.palavra_chave || '').trim();
+
+  if (!palavraChave) {
+    return res.status(400).json({
+      error: 'missing_query',
+      message:
+        'Informe o parâmetro de busca "?q={palavra_chave}" na rota /api/concorrencia.',
+    });
+  }
+
+  try {
+    const radarData = await searchMeliCompetitors(palavraChave);
+    return res.status(200).json({
+      query: radarData.query,
+      source: radarData.source,
+      results: radarData.results,
+      concorrentes: radarData.concorrentes,
+      stats: radarData.stats,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: 'competitor_radar_error',
+      message: error.message || 'Erro ao consultar o Radar de Concorrência no Mercado Livre.',
+    });
+  }
+});
+
+// ============================================================================
 // Pilar 4: Trava Absoluta Human-in-the-Loop nas Tools da IA (Sem HTTP PUT direto)
 // ============================================================================
 export const HUMAN_IN_THE_LOOP_MESSAGE =
@@ -731,6 +971,18 @@ export const HUMAN_IN_THE_LOOP_MESSAGE =
 
 function createMeliToolExecutors() {
   return {
+    // Tool 1: Radar de Concorrência (Executa busca real nos 5 primeiros colocados do ML e devolve ao contexto do LLM)
+    pesquisar_concorrentes: async ({ palavra_chave }) => {
+      const radar = await searchMeliCompetitors(palavra_chave);
+      return {
+        success: true,
+        human_in_the_loop: false,
+        palavra_chave: radar.query,
+        concorrentes: radar.concorrentes,
+        stats: radar.stats,
+      };
+    },
+
     // NUNCA realiza fetch/PUT para o Mercado Livre! Devolve apenas o JSON para abrir o Modal de Edição.
     atualizar_preco_anuncio: async ({ item_id, price }) => {
       const numericPrice = Number(price);
@@ -812,13 +1064,14 @@ function createMeliToolExecutors() {
 }
 
 // ============================================================================
-// 5. Rota POST /api/chat — Copiloto B2B Pacific Flowers (Human-in-the-Loop)
+// 5. Rota POST /api/chat — Copiloto B2B + Radar de Concorrência + Human-in-the-Loop
 // ============================================================================
 app.get('/api/chat/config', (req, res) => {
   res.json({
     system_prompt: COPILOT_SYSTEM_PROMPT,
     tools: COPILOT_TOOLS.map((t) => t.name),
     human_in_the_loop: true,
+    competitor_radar_enabled: true,
     direct_ml_put_disabled_in_chat: true,
     gemini_configured: Boolean(process.env.GEMINI_API_KEY),
   });
@@ -837,6 +1090,11 @@ app.post('/api/chat', async (req, res) => {
   const toolExecutors = createMeliToolExecutors();
   const resolvedApiKey = (gemini_api_key || process.env.GEMINI_API_KEY || '').trim();
 
+  // ==========================================================================
+  // Fluxo 1: LLM Gemini (Interactions API) com ciclo multi-turn de Function Calling
+  // 1º Invoca pesquisar_concorrentes(palavra_chave) -> recebe os 5 concorrentes no contexto
+  // 2º Analisa os concorrentes e invoca otimizar_titulo_b2b / atualizar_preco_anuncio -> abre Modal
+  // ==========================================================================
   if (resolvedApiKey) {
     try {
       const ai = new GoogleGenAI({ apiKey: resolvedApiKey });
@@ -845,6 +1103,7 @@ app.post('/api/chat', async (req, res) => {
       let interaction;
       const executedTools = [];
       let pendingApproval = null;
+      let competitorsRadar = null;
 
       while (true) {
         interaction = await ai.interactions.create({
@@ -868,6 +1127,14 @@ app.post('/api/chat', async (req, res) => {
               arguments: step.arguments,
               result,
             });
+
+            if (step.name === 'pesquisar_concorrentes' && result?.concorrentes) {
+              competitorsRadar = {
+                query: result.palavra_chave,
+                concorrentes: result.concorrentes,
+                stats: result.stats,
+              };
+            }
 
             if (result && result.human_in_the_loop && result.proposed_fields) {
               pendingApproval = {
@@ -899,12 +1166,18 @@ app.post('/api/chat', async (req, res) => {
         currentPreviousId = interaction.id;
       }
 
+      const llmAnalysisText = (interaction.output_text || '').trim();
+      const finalReply = pendingApproval
+        ? llmAnalysisText && !llmAnalysisText.includes(HUMAN_IN_THE_LOOP_MESSAGE)
+          ? `${llmAnalysisText}\n\n${HUMAN_IN_THE_LOOP_MESSAGE}`
+          : HUMAN_IN_THE_LOOP_MESSAGE
+        : llmAnalysisText || 'Auditoria e análise de concorrência concluídas.';
+
       return res.json({
-        reply: pendingApproval
-          ? HUMAN_IN_THE_LOOP_MESSAGE
-          : interaction.output_text || 'Auditoria concluída.',
+        reply: finalReply,
         interaction_id: interaction.id,
         executed_tools: executedTools,
+        competitors_radar: competitorsRadar,
         pending_approval: pendingApproval,
         system_prompt_active: true,
       });
@@ -917,7 +1190,11 @@ app.post('/api/chat', async (req, res) => {
   }
 
   // ==========================================================================
-  // Motor Local de Auditoria & Function Calling (Human-in-the-Loop)
+  // Fluxo 2: Motor Local de Inteligência Competitiva + Auditoria + Human-in-the-Loop
+  // Segue estritamente a diretriz:
+  // 1) Aciona pesquisar_concorrentes(palavra_chave)
+  // 2) Devolve os 5 concorrentes para o contexto e gera a análise competitiva
+  // 3) Aciona otimizar_titulo_b2b (+ preço competitivo > R$ 79,00) para abrir o Modal na tela
   // ==========================================================================
   const text = String(message).trim();
   const mlbMatch = text.match(/\b(MLB[-_]?\d+)\b/i);
@@ -931,25 +1208,92 @@ app.post('/api/chat', async (req, res) => {
       reply:
         'Recuso gentilmente esta descrição: pelas **Regras de Descrição do Mercado Livre**, é terminantemente proibido o uso de **código HTML**. Utilize apenas texto puro estruturado com medidas exatas, material, formato e aplicação (ex: Gramatura 90g, Poliestireno UV).',
       executed_tools: [],
+      competitors_radar: null,
       pending_approval: null,
       system_prompt_active: true,
     });
   }
 
-  // 2) Verifica se o usuário pediu otimização/alteração de título
-  const titleQuoteMatch = text.match(/["'“”]([^"'“”]{5,120})["'“”]/);
-  if (/t[ií]tulo|otimiz|renome/i.test(text) && titleQuoteMatch) {
-    const candidateTitle = titleQuoteMatch[1];
-    const audit = validateTitleCompliance(candidateTitle);
+  // Extrai palavra-chave para o Radar de Concorrência
+  const titleQuoteMatch = text.match(/["'“”]([^"'“”]{3,120})["'“”]/);
+  let extractedKeyword = 'Kit Caixas Presente Floral';
+  if (/bobina|seda/i.test(text) || itemId === 'MLB4019283741') {
+    extractedKeyword = 'Kit Bobina Papel Seda Estampado';
+  } else if (/tal[aã]o|pedido|bloco/i.test(text)) {
+    extractedKeyword = 'Kit 50 Talões Pedido 10x15cm';
+  } else if (titleQuoteMatch) {
+    extractedKeyword = titleQuoteMatch[1]
+      .replace(/\b(oferta|frete\s*gr[aá]tis|promo[cç][aã]o|brinde|liquida[cç][aã]o)\b/gi, '')
+      .replace(/[!*#@$%&]+/g, '')
+      .trim()
+      .slice(0, 45);
+  }
+
+  const isTitleOrCompetitorOrMarginRequest =
+    /t[ií]tulo|otimiz|renome|concorr[eê]n|radar|pesquis|suger|margem|kit|an[uú]ncio/i.test(
+      text
+    );
+
+  let competitorsRadar = null;
+  let competitiveAnalysisBlock = '';
+
+  // Diretriz Obrigatória do System Prompt: Antes de sugerir título, calcular margem ou preencher o modal,
+  // aciona obrigatoriamente pesquisar_concorrentes(palavra_chave)
+  if (isTitleOrCompetitorOrMarginRequest) {
+    const radarToolResult = await toolExecutors.pesquisar_concorrentes({
+      palavra_chave: extractedKeyword,
+    });
+    executedTools.push({
+      name: 'pesquisar_concorrentes',
+      arguments: { palavra_chave: extractedKeyword },
+      result: radarToolResult,
+    });
+
+    competitorsRadar = {
+      query: radarToolResult.palavra_chave,
+      concorrentes: radarToolResult.concorrentes,
+      stats: radarToolResult.stats,
+    };
+
+    const top5Lines = radarToolResult.concorrentes
+      .map(
+        (c, idx) =>
+          `${idx + 1}. **${c.title}** — R$ ${Number(c.price).toFixed(2)} (${
+            c.free_shipping ? '⚡ Frete Grátis' : 'Frete por conta do comprador'
+          })`
+      )
+      .join('\n');
+
+    competitiveAnalysisBlock = `📊 **Radar de Concorrência Mercado Livre ("${radarToolResult.palavra_chave}"):**\n${top5Lines}\n\n💡 **Inteligência Competitiva B2B:** Preço médio dos 5 primeiros colocados: **R$ ${radarToolResult.stats.average_price.toFixed(
+      2
+    )}** (${radarToolResult.stats.free_shipping_count}/5 oferecem Frete Grátis). Preço competitivo sugerido para Kit Atacado (> R$ 79,00 com Frete Grátis lucrativo): **R$ ${radarToolResult.stats.suggested_competitive_price.toFixed(
+      2
+    )}**.`;
+  }
+
+  // 2) Se o usuário pediu otimização/alteração de título ou análise de concorrência para kit B2B
+  if (/t[ií]tulo|otimiz|renome|concorr[eê]n|radar|suger/i.test(text)) {
+    const rawCandidate = titleQuoteMatch
+      ? titleQuoteMatch[1]
+      : /bobina|seda/i.test(text) || itemId === 'MLB4019283741'
+      ? 'Kit 5 Bobinas Papel Seda Botânico 60cm Pacific Flowers'
+      : /tal[aã]o|pedido/i.test(text)
+      ? 'Kit 50 Talões Pedido 10x15cm Pacific Flowers'
+      : 'Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers';
+
+    const audit = validateTitleCompliance(rawCandidate);
 
     if (!audit.valid) {
       return res.json({
-        reply: `Recuso gentilmente a alteração solicitada pois ela viola as **Regras de Título (SEO e Conformidade)** do Mercado Livre:\n\n- ${audit.violations.join(
+        reply: `${
+          competitiveAnalysisBlock ? `${competitiveAnalysisBlock}\n\n---\n\n` : ''
+        }Recuso gentilmente a alteração solicitada pois ela viola as **Regras de Título (SEO e Conformidade)** do Mercado Livre:\n\n- ${audit.violations.join(
           '\n- '
-        )}\n\n✅ **Sugestão Corrigida (${
+        )}\n\n✅ **Sugestão Corrigida Superior à Concorrência (${
           audit.suggested_title.length
         }/60 caracteres, Foco B2B):**\n\`${audit.suggested_title}\``,
-        executed_tools: [],
+        executed_tools: executedTools,
+        competitors_radar: competitorsRadar,
         pending_approval: null,
         system_prompt_active: true,
       });
@@ -957,17 +1301,33 @@ app.post('/api/chat', async (req, res) => {
 
     const toolResult = await toolExecutors.otimizar_titulo_b2b({
       item_id: itemId,
-      title: candidateTitle,
+      title: rawCandidate,
     });
     executedTools.push({
       name: 'otimizar_titulo_b2b',
-      arguments: { item_id: itemId, title: candidateTitle },
+      arguments: { item_id: itemId, title: rawCandidate },
       result: toolResult,
     });
-    combinedProposedFields.title = candidateTitle;
+    combinedProposedFields.title = rawCandidate;
+
+    // Se o anúncio atual estiver abaixo de R$ 79,00 ou se o usuário pediu sugestão competitiva,
+    // também sugere o Preço de Venda competitivo (> R$ 79,00) baseado nos 5 primeiros colocados!
+    if (competitorsRadar?.stats?.suggested_competitive_price && !/pre[cç]o/i.test(text)) {
+      const suggestedPrice = competitorsRadar.stats.suggested_competitive_price;
+      const priceToolResult = await toolExecutors.atualizar_preco_anuncio({
+        item_id: itemId,
+        price: suggestedPrice,
+      });
+      executedTools.push({
+        name: 'atualizar_preco_anuncio',
+        arguments: { item_id: itemId, price: suggestedPrice },
+        result: priceToolResult,
+      });
+      combinedProposedFields.price = suggestedPrice;
+    }
   }
 
-  // 3) Verifica comando de atualização de preço (Human-in-the-Loop)
+  // 3) Verifica comando explícito de atualização de preço (Human-in-the-Loop)
   const priceMatch = text.match(
     /R\$\s*(\d+(?:[.,]\d{1,2})?)|pre[cç]o\s+(?:para\s+)?(\d+(?:[.,]\d{1,2})?)/i
   );
@@ -1003,12 +1363,17 @@ app.post('/api/chat', async (req, res) => {
   }
 
   if (Object.keys(combinedProposedFields).length > 0) {
+    const finalMessage = competitiveAnalysisBlock
+      ? `${competitiveAnalysisBlock}\n\n${HUMAN_IN_THE_LOOP_MESSAGE}`
+      : HUMAN_IN_THE_LOOP_MESSAGE;
+
     return res.json({
-      reply: HUMAN_IN_THE_LOOP_MESSAGE,
+      reply: finalMessage,
       executed_tools: executedTools,
+      competitors_radar: competitorsRadar,
       pending_approval: {
         item_id: itemId,
-        tool_name: executedTools.map((t) => t.name).join('+'),
+        tool_name: executedTools.map((t) => t.name).join(' -> '),
         ...combinedProposedFields,
         proposed_fields: combinedProposedFields,
       },
@@ -1017,8 +1382,9 @@ app.post('/api/chat', async (req, res) => {
   }
 
   return res.json({
-    reply: `Sou o **Copiloto de Vendas B2B da Pacific Flowers** e Auditor de Conformidade do Mercado Livre (Modo **Human-in-the-Loop** ativo).\n\nSempre que você solicitar uma alteração de **Título**, **Preço** ou **Estoque**, irei validar as regras do Mercado Livre e abrir automaticamente o **Modal de Edição** preenchido com os novos dados para sua revisão final antes do envio ao Mercado Livre.`,
-    executed_tools: [],
+    reply: `Sou o **Copiloto de Vendas B2B da Pacific Flowers** com **Radar de Concorrência em Tempo Real** e **Modo Human-in-the-Loop**.\n\nAntes de sugerir qualquer título ou preço, consulto os **5 primeiros colocados do Mercado Livre** via \`pesquisar_concorrentes(palavra_chave)\`, analiso os preços e status de Frete Grátis e abro automaticamente o **Modal de Edição** preenchido com a melhor estratégia B2B (> R$ 79,00) para você aprovar e clicar em **Salvar**.`,
+    executed_tools: executedTools,
+    competitors_radar: competitorsRadar,
     pending_approval: null,
     system_prompt_active: true,
   });

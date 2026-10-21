@@ -667,6 +667,7 @@ function DashboardContent() {
           role: 'assistant',
           text: data.reply,
           tools: data.executed_tools || [],
+          radar: data.competitors_radar || null,
         },
       ]);
 
@@ -1395,21 +1396,35 @@ function DashboardContent() {
           </>
         ) : (
           /* ================================================================
-           * VIEW 3: COPILOTO DE VENDAS B2B & AUDITOR (HUMAN-IN-THE-LOOP)
+           * VIEW 3: COPILOTO DE VENDAS B2B & RADAR DE CONCORRÊNCIA
            * ================================================================ */
           <>
             <header className="topbar">
               <div>
                 <h1 className="page-title">
-                  Copiloto de Vendas B2B — Aprovação Manual (Human-in-the-Loop)
+                  Copiloto B2B & Radar de Concorrência (Human-in-the-Loop)
                 </h1>
                 <p className="page-subtitle">
-                  A IA audita as políticas do Mercado Livre e abre o Modal de Edição preenchido com Título, Preço e Estoque sugeridos. O PUT só é enviado ao clicar em Salvar.
+                  A IA consulta os 5 primeiros colocados do Mercado Livre em tempo real (<code>pesquisar_concorrentes</code>), analisa preços/títulos e abre o Modal de Edição preenchido para aprovação.
                 </p>
               </div>
             </header>
 
             <div className="toolbar" style={{ justifyContent: 'flex-start', gap: '0.6rem' }}>
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                onClick={() =>
+                  handleSendChatMessage(
+                    null,
+                    `Pesquisar concorrentes e otimizar título B2B do anúncio ${
+                      items[0]?.id || 'MLB3948102938'
+                    } para "Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers"`
+                  )
+                }
+              >
+                🔍 1. Acionar Radar Top 5 + Sugerir Kit B2B (Abre Modal)
+              </button>
               <button
                 type="button"
                 className="btn-secondary"
@@ -1422,7 +1437,7 @@ function DashboardContent() {
                   )
                 }
               >
-                1. Testar Bloqueio de Violação (Promoção + &gt;60 chars)
+                2. Testar Bloqueio de Violação (Promoção + &gt;60 chars)
               </button>
               <button
                 type="button"
@@ -1430,25 +1445,11 @@ function DashboardContent() {
                 onClick={() =>
                   handleSendChatMessage(
                     null,
-                    `Otimizar título do ${
-                      items[0]?.id || 'MLB3948102938'
-                    } para "Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers"`
+                    `Pesquisar concorrentes para "Kit 50 Talões Pedido 10x15cm" e sugerir título B2B`
                   )
                 }
               >
-                2. Sugerir Título B2B (Abre Modal p/ Aprovação)
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() =>
-                  handleSendChatMessage(
-                    null,
-                    `Atualizar preço do ${items[0]?.id || 'MLB3948102938'} para R$ 94,90`
-                  )
-                }
-              >
-                3. Sugerir Novo Preço R$ 94,90 (Abre Modal p/ Aprovação)
+                3. Radar Concorrência: Kit 50 Talões Pedido
               </button>
             </div>
 
@@ -1468,7 +1469,7 @@ function DashboardContent() {
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '0.85rem',
-                  maxHeight: '420px',
+                  maxHeight: '440px',
                   overflowY: 'auto',
                   paddingRight: '0.5rem',
                 }}
@@ -1478,7 +1479,7 @@ function DashboardContent() {
                     key={i}
                     style={{
                       alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                      maxWidth: '82%',
+                      maxWidth: '88%',
                       backgroundColor:
                         msg.role === 'user'
                           ? 'rgba(139, 92, 246, 0.2)'
@@ -1496,6 +1497,95 @@ function DashboardContent() {
                     }}
                   >
                     <div>{msg.text}</div>
+
+                    {/* Tabela Compacta do Radar de Concorrência (Top 5 do Mercado Livre) */}
+                    {msg.radar?.concorrentes && msg.radar.concorrentes.length > 0 && (
+                      <div
+                        style={{
+                          marginTop: '0.75rem',
+                          padding: '0.75rem',
+                          borderRadius: '8px',
+                          backgroundColor: 'var(--bg-surface)',
+                          border: '1px solid rgba(139, 92, 246, 0.35)',
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            color: '#c4b5fd',
+                            marginBottom: '0.5rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                          }}
+                        >
+                          <span>
+                            🎯 Top 5 Concorrentes no Mercado Livre (&ldquo;{msg.radar.query}&rdquo;)
+                          </span>
+                          <span>
+                            Média:{' '}
+                            {brlFormatter.format(msg.radar.stats?.average_price || 0)}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.4rem',
+                          }}
+                        >
+                          {msg.radar.concorrentes.map((comp, cIdx) => (
+                            <div
+                              key={cIdx}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '0.75rem',
+                                fontSize: '0.76rem',
+                                padding: '0.35rem 0.5rem',
+                                borderRadius: '6px',
+                                backgroundColor: 'var(--bg-base)',
+                              }}
+                            >
+                              <span
+                                style={{
+                                  flex: 1,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {cIdx + 1}. {comp.title}
+                              </span>
+                              <span className="mono-value" style={{ fontWeight: 600 }}>
+                                {brlFormatter.format(comp.price || 0)}
+                              </span>
+                              <span
+                                className={`strategy-tag ${
+                                  comp.free_shipping ? 'neon-green' : 'danger'
+                                }`}
+                                style={{ fontSize: '0.65rem', padding: '0.1rem 0.45rem' }}
+                              >
+                                {comp.free_shipping ? '⚡ Frete Grátis' : 'Frete Pago'}
+                              </span>
+                              {comp.link && (
+                                <a
+                                  href={comp.link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="accent-link"
+                                  style={{ fontSize: '0.72rem' }}
+                                >
+                                  Ver ↗
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {msg.tools && msg.tools.length > 0 && (
                       <div
                         style={{
@@ -1507,10 +1597,10 @@ function DashboardContent() {
                           fontFamily: 'JetBrains Mono, monospace',
                         }}
                       >
-                        ⚡ Function Call interceptada (Human-in-the-Loop — aguardando Salvar):{' '}
+                        ⚡ Fluxo de Tools Executado:{' '}
                         {msg.tools
                           .map((t) => `${t.name}(${JSON.stringify(t.arguments)})`)
-                          .join(', ')}
+                          .join(' → ')}
                       </div>
                     )}
                   </div>
@@ -1525,12 +1615,12 @@ function DashboardContent() {
                   type="text"
                   className="form-input"
                   style={{ flex: 1 }}
-                  placeholder="Peça ao Copiloto B2B para otimizar título ou atualizar preço/estoque..."
+                  placeholder="Peça ao Copiloto B2B para pesquisar concorrentes e otimizar título/preço..."
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                 />
                 <button type="submit" className="btn-primary" disabled={chatLoading}>
-                  {chatLoading ? 'Preparando...' : 'Enviar para /api/chat'}
+                  {chatLoading ? 'Analisando Concorrência...' : 'Enviar para /api/chat'}
                 </button>
               </form>
             </div>
@@ -1557,7 +1647,7 @@ function DashboardContent() {
                     }}
                   />
                   <strong style={{ fontSize: '0.82rem' }}>
-                    Copiloto B2B (Human-in-the-Loop)
+                    Copiloto B2B + Radar Concorrência
                   </strong>
                 </div>
                 <button
@@ -1605,11 +1695,13 @@ function DashboardContent() {
                   onClick={() =>
                     handleSendChatMessage(
                       null,
-                      `Atualizar preço do ${items[0]?.id || 'MLB3948102938'} para R$ 94,90`
+                      `Pesquisar concorrentes e otimizar título do ${
+                        items[0]?.id || 'MLB3948102938'
+                      } para "Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers"`
                     )
                   }
                 >
-                  ⚡ Sugerir R$ 94,90
+                  🔍 Radar Top 5 + Otimizar Kit
                 </button>
                 <button
                   type="button"
@@ -1617,13 +1709,11 @@ function DashboardContent() {
                   onClick={() =>
                     handleSendChatMessage(
                       null,
-                      `Otimizar título do ${
-                        items[0]?.id || 'MLB3948102938'
-                      } para "Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers"`
+                      `Atualizar preço do ${items[0]?.id || 'MLB3948102938'} para R$ 94,90`
                     )
                   }
                 >
-                  ✨ Otimizar Título B2B
+                  ⚡ Sugerir R$ 94,90
                 </button>
               </div>
 
