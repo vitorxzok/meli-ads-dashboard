@@ -404,12 +404,23 @@ body {
   color: var(--text-secondary);
 }
 
+.ads-table td.item-title-cell,
 .item-title-cell {
   font-weight: 500;
   color: var(--text-primary);
-  max-width: 300px;
-  white-space: normal;
-  line-height: 1.35;
+  max-width: 270px;
+  width: 270px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-title-truncate {
+  display: block;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mono-value {
@@ -417,10 +428,12 @@ body {
   font-size: 0.82rem;
 }
 
+.ads-table td.price-cell,
 .price-cell {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 600;
   color: #ffffff;
+  padding-left: 1.15rem;
 }
 
 .cost-cell {

@@ -945,9 +945,9 @@ function DashboardContent() {
                 <thead>
                   <tr>
                     <th style={{ width: '60px' }}>Foto</th>
-                    <th>ID</th>
-                    <th>Título</th>
-                    <th>Preço</th>
+                    <th style={{ width: '140px' }}>ID</th>
+                    <th style={{ width: '270px', maxWidth: '270px' }}>Título</th>
+                    <th style={{ paddingLeft: '1.15rem' }}>Preço</th>
                     <th>Custo do Produto</th>
                     <th>Taxas ML (Estimativa)</th>
                     <th>Custo de Frete (Vendedor)</th>
@@ -1020,7 +1020,12 @@ function DashboardContent() {
                             <span className="mono-id">{item.id}</span>
                           </td>
                           <td className="item-title-cell">
-                            {isEditingThisRow ? editTitle : item.title}
+                            <div
+                              className="item-title-truncate"
+                              title={isEditingThisRow ? editTitle : item.title}
+                            >
+                              {isEditingThisRow ? editTitle : item.title}
+                            </div>
                           </td>
                           <td className="price-cell">{brlFormatter.format(sim.price)}</td>
                           <td className="cost-cell">{brlFormatter.format(sim.productCost)}</td>
@@ -1266,7 +1271,13 @@ function DashboardContent() {
                           </td>
 
                           <td className="item-title-cell">
-                            <div style={{ fontWeight: 600 }}>{camp.name}</div>
+                            <div
+                              className="item-title-truncate"
+                              style={{ fontWeight: 600 }}
+                              title={camp.name}
+                            >
+                              {camp.name}
+                            </div>
                             <div
                               style={{
                                 display: 'flex',
