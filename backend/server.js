@@ -307,13 +307,24 @@ async function ensureValidAccessToken() {
   return authSession.access_token;
 }
 
-async function exchangeCodeForToken(code) {
+const DEFAULT_APP_ID = process.env.APP_ID || '8994097000713485';
+
+function getRedirectUri(req) {
+  if (process.env.REDIRECT_URI) return process.env.REDIRECT_URI;
+  if (req && req.headers?.host) {
+    const proto = req.headers['x-forwarded-proto'] || 'https';
+    return `${proto}://${req.headers.host}/callback`;
+  }
+  return 'https://localhost:3000/callback';
+}
+
+async function exchangeCodeForToken(code, req) {
   const payload = new URLSearchParams({
     grant_type: 'authorization_code',
-    client_id: process.env.APP_ID,
-    client_secret: process.env.SECRET_KEY,
+    client_id: DEFAULT_APP_ID,
+    client_secret: process.env.SECRET_KEY || '',
     code: String(code),
-    redirect_uri: process.env.REDIRECT_URI,
+    redirect_uri: getRedirectUri(req),
   });
 
   const response = await fetch(`${ML_API_BASE}/oauth/token`, {
@@ -343,16 +354,17 @@ async function exchangeCodeForToken(code) {
 // 1. OAuth 2.0 Endpoints (Authorization URL, Status & Callback)
 // ============================================================================
 app.get('/api/auth/status', (req, res) => {
+  const redirectUri = getRedirectUri(req);
   const authUrl = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${encodeURIComponent(
-    process.env.APP_ID || ''
-  )}&redirect_uri=${encodeURIComponent(process.env.REDIRECT_URI || '')}`;
+    DEFAULT_APP_ID
+  )}&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
   res.json({
     authenticated: Boolean(authSession.access_token),
     user_id: authSession.user_id,
     expires_at: authSession.expires_at,
-    app_id: process.env.APP_ID,
-    redirect_uri: process.env.REDIRECT_URI,
+    app_id: DEFAULT_APP_ID,
+    redirect_uri: redirectUri,
     auth_url: authUrl,
   });
 });
@@ -368,10 +380,12 @@ const handleOAuthCallback = async (req, res) => {
   }
 
   try {
-    const tokenData = await exchangeCodeForToken(code);
+    const tokenData = await exchangeCodeForToken(code, req);
 
     if (req.headers.accept && req.headers.accept.includes('text/html') && req.method === 'GET') {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const proto = req.headers['x-forwarded-proto'] || 'http';
+      const baseHost = req.headers.host ? `${proto}://${req.headers.host}` : 'http://localhost:3000';
+      const frontendUrl = process.env.FRONTEND_URL || baseHost;
       return res.redirect(`${frontendUrl}/?auth=success`);
     }
 
