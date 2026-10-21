@@ -7,3 +7,5 @@ backend/.tokens.json
 backend/.costs.json
 .vercel
 .DS_Store
+
+.vercel
