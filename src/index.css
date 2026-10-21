@@ -215,9 +215,14 @@ body {
   transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background-color: var(--bg-hover);
   color: var(--text-primary);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-secondary.active-filter {
@@ -227,9 +232,9 @@ body {
   box-shadow: 0 0 14px var(--electric-purple-glow);
 }
 
-/* Conteúdo Principal */
+/* Conteúdo Principal — padding-bottom amplo para o widget do chat nunca cobrir linhas da tabela */
 .main-content {
-  padding: 1.75rem 2rem;
+  padding: 1.75rem 2rem 6.5rem 2rem;
   width: 100%;
   overflow-x: hidden;
 }
@@ -495,7 +500,7 @@ body {
   color: #c4b5fd;
 }
 
-/* Toggle Switch (Chave Liga/Desliga) com Brilho em Roxo Elétrico */
+/* Toggle Switch (Chave Liga/Desliga) com Brilho em Roxo Elétrico + Estado Loading */
 .toggle-wrapper {
   display: inline-flex;
   align-items: center;
@@ -537,9 +542,40 @@ body {
   background-color: #ffffff;
 }
 
+.toggle-switch.loading {
+  opacity: 0.7;
+  cursor: wait;
+  animation: pulseGlow 1s infinite alternate;
+}
+
 .toggle-switch:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+@keyframes pulseGlow {
+  from {
+    box-shadow: 0 0 4px rgba(139, 92, 246, 0.3);
+  }
+  to {
+    box-shadow: 0 0 14px rgba(139, 92, 246, 0.85);
+  }
+}
+
+.inline-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.65s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .toggle-label {
@@ -566,7 +602,12 @@ body {
   border: 1px solid rgba(139, 92, 246, 0.35);
   border-radius: 7px;
   padding: 0 0.55rem;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition: border-color 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+}
+
+.budget-input-group.disabled {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .budget-input-group:focus-within {
@@ -590,6 +631,10 @@ body {
   font-size: 0.83rem;
   font-weight: 600;
   outline: none;
+}
+
+.budget-inline-input:disabled {
+  cursor: wait;
 }
 
 .stock-badge {
@@ -626,7 +671,7 @@ dialog.slideover-dialog {
   margin: 0 0 0 auto;
   height: 100dvh;
   max-height: 100dvh;
-  width: min(480px, 100vw);
+  width: min(490px, 100vw);
   background-color: var(--bg-surface);
   color: var(--text-primary);
   border: none;
@@ -721,6 +766,17 @@ dialog.slideover-dialog::backdrop {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.simulator-card.free-shipping-active {
+  border-color: rgba(0, 255, 136, 0.35);
+  box-shadow: 0 0 18px rgba(0, 255, 136, 0.06);
+}
+
+.simulator-card.fixed-fee-active {
+  border-color: rgba(239, 68, 68, 0.35);
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.06);
 }
 
 .simulator-card-header {
@@ -729,6 +785,8 @@ dialog.slideover-dialog::backdrop {
   justify-content: space-between;
   padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--border-subtle);
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .simulator-row {
@@ -757,7 +815,7 @@ dialog.slideover-dialog::backdrop {
 
 .banner-notice {
   margin-bottom: 1.15rem;
-  padding: 0.8rem 1.1rem;
+  padding: 0.85rem 1.1rem;
   border-radius: 10px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
@@ -767,4 +825,176 @@ dialog.slideover-dialog::backdrop {
   gap: 1rem;
   font-size: 0.83rem;
   color: var(--text-secondary);
+}
+
+/* ==========================================================================
+ * Pilar 3: Toast / Snackbar Notifications (Popover API manual + Fallback)
+ * ========================================================================== */
+.toast-stack {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  pointer-events: none;
+  max-width: min(420px, calc(100vw - 2.5rem));
+}
+
+.toast-item {
+  pointer-events: auto;
+  margin: 0;
+  position: relative;
+  inset: auto;
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--electric-purple);
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  transition: opacity 200ms ease, transform 200ms ease;
+  transition-behavior: allow-discrete;
+}
+
+.toast-item[popover]:is(:popover-open, .\:popover-open) {
+  display: flex;
+}
+
+.toast-item + .toast-item {
+  margin-top: 0.5rem;
+}
+
+.toast-item.toast-success {
+  border-left-color: #00ff88;
+}
+
+.toast-item.toast-error {
+  border-left-color: #ef4444;
+}
+
+.toast-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+.toast-close-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+/* ==========================================================================
+ * Pilar 4: Widget do Copiloto B2B no Canto Inferior Direito (Retrátil)
+ * ========================================================================== */
+.copilot-floating-container {
+  position: fixed;
+  bottom: 1.15rem;
+  right: 1.25rem;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.65rem;
+  pointer-events: none;
+}
+
+.copilot-fab {
+  pointer-events: auto;
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--electric-purple);
+  border-radius: 999px;
+  padding: 0.62rem 1.1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.65), 0 0 16px var(--electric-purple-glow);
+  transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.copilot-fab:hover {
+  background-color: var(--electric-purple);
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+.copilot-floating-panel {
+  pointer-events: auto;
+  width: min(390px, calc(100vw - 2.5rem));
+  max-height: min(460px, calc(100dvh - 6rem));
+  background-color: var(--bg-surface);
+  border: 1px solid rgba(139, 92, 246, 0.45);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 20px rgba(139, 92, 246, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.copilot-floating-header {
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.copilot-floating-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 270px;
+}
+
+.copilot-floating-quick {
+  padding: 0.45rem 0.85rem;
+  border-top: 1px solid var(--border-subtle);
+  background-color: rgba(9, 9, 11, 0.5);
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+}
+
+.copilot-quick-chip {
+  white-space: nowrap;
+  background-color: var(--bg-elevated);
+  color: #c4b5fd;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.copilot-quick-chip:hover {
+  background-color: rgba(139, 92, 246, 0.2);
+  color: #ffffff;
+}
+
+.copilot-floating-form {
+  padding: 0.65rem 0.85rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  gap: 0.5rem;
+  background-color: var(--bg-surface);
 }

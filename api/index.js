@@ -21,8 +21,50 @@ const ML_API_BASE = 'https://api.mercadolibre.com';
 
 const DEFAULT_APP_ID = (process.env.APP_ID || '8994097000713485').trim();
 const DEFAULT_SECRET_KEY = (process.env.SECRET_KEY || 'bLOGM4wmQHP76FcSYpzPFyAAX4TeTkzg').trim();
+const PRODUCTION_APP_URL = (
+  process.env.VITE_API_URL ||
+  process.env.FRONTEND_URL ||
+  'https://pacific-flowers-meli-ads.vercel.app'
+)
+  .trim()
+  .replace(/\/$/, '');
 
-app.use(cors({ origin: true, credentials: true }));
+// ============================================================================
+// Pilar 5: Configuração Robusta de CORS para Produção na Vercel
+// ============================================================================
+const ALLOWED_ORIGINS = [
+  PRODUCTION_APP_URL,
+  'https://pacific-flowers-meli-ads.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (
+      !origin ||
+      ALLOWED_ORIGINS.includes(origin) ||
+      /\.vercel\.app$/i.test(origin) ||
+      /^https?:\/\/localhost(:\d+)?$/i.test(origin)
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Accept',
+    'X-Requested-With',
+    'api-version',
+    'x-meli-authenticated',
+  ],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 // ============================================================================
@@ -65,14 +107,14 @@ Sempre recomende agrupar produtos (Kits/Caixas) para ultrapassar a barreira dos 
 Se o usuário solicitar uma alteração ou criação que fira essas regras, você deve recusar a ação gentilmente, explicar qual regra do Mercado Livre seria violada, e sugerir a versão corrigida imediatamente.`;
 
 // ============================================================================
-// Definições de Function Calling (Tools) conectadas aos endpoints do ML
+// Definições de Function Calling (Tools) mapeadas para o fluxo Human-in-the-Loop
 // ============================================================================
 export const COPILOT_TOOLS = [
   {
     type: 'function',
     name: 'atualizar_preco_anuncio',
     description:
-      'Atualiza o preço de venda (price) de um anúncio no Mercado Livre via PUT /items/:id. Atenção: valide antes a regra estratégica de R$ 79,00 (taxa fixa de R$ 6,00 abaixo de R$ 79,00).',
+      'Prepara a atualização do preço de venda (price) de um anúncio no Mercado Livre para aprovação humana no Modal de Edição. Atenção: valide antes a regra estratégica de R$ 79,00 (taxa fixa de R$ 6,00 abaixo de R$ 79,00).',
     parameters: {
       type: 'object',
       properties: {
@@ -92,7 +134,7 @@ export const COPILOT_TOOLS = [
     type: 'function',
     name: 'atualizar_estoque',
     description:
-      'Atualiza o estoque disponível (available_quantity) de um anúncio no Mercado Livre via PUT /items/:id.',
+      'Prepara a atualização do estoque disponível (available_quantity) de um anúncio no Mercado Livre para aprovação humana no Modal de Edição.',
     parameters: {
       type: 'object',
       properties: {
@@ -112,7 +154,7 @@ export const COPILOT_TOOLS = [
     type: 'function',
     name: 'otimizar_titulo_b2b',
     description:
-      'Atualiza e otimiza o título (title) de um anúncio B2B no Mercado Livre via PUT /items/:id, respeitando estritamente o limite de 60 caracteres, sem termos promocionais ou símbolos proibidos, abrindo com a quantidade em kits B2B.',
+      'Prepara a otimização do título (title) de um anúncio B2B no Mercado Livre para aprovação humana no Modal de Edição, respeitando estritamente o limite de 60 caracteres, sem termos promocionais ou símbolos proibidos, abrindo com a quantidade em kits B2B.',
     parameters: {
       type: 'object',
       properties: {
@@ -163,7 +205,6 @@ export function validateTitleCompliance(title) {
     violations.push('Inclusão proibida de dados de contato, telefone ou links no título.');
   }
 
-  // Gera sugestão corrigida automaticamente (<= 60 chars, sem termos proibidos)
   let suggested = clean
     .replace(forbiddenPromoRegex, '')
     .replace(/[!*#@$%&]+/g, '')
@@ -186,7 +227,7 @@ export function validateTitleCompliance(title) {
 }
 
 // ============================================================================
-// PKCE (RFC 7636) Determinístico para Serverless (OAuth 2.0 Mercado Livre)
+// Pilar 1: OAuth 2.0 + PKCE (RFC 7636) + REDIRECT_URI de Produção (Sem localhost)
 // ============================================================================
 function getPkcePair() {
   const codeVerifier = crypto
@@ -202,17 +243,58 @@ function getPkcePair() {
   return { codeVerifier, codeChallenge };
 }
 
-function getRedirectUri(req) {
-  if (process.env.REDIRECT_URI) return process.env.REDIRECT_URI.trim();
-  if (req && req.headers?.host) {
+export function getRedirectUri(req) {
+  // Prioriza VITE_API_URL ou REDIRECT_URI de produção (nunca trava em localhost:3000 na Vercel)
+  const envApiUrl = (process.env.VITE_API_URL || '').trim().replace(/\/$/, '');
+  const envRedirectUri = (process.env.REDIRECT_URI || '').trim();
+
+  if (envRedirectUri && !/localhost/i.test(envRedirectUri)) {
+    return envRedirectUri;
+  }
+
+  if (envApiUrl && !/localhost/i.test(envApiUrl)) {
+    return `${envApiUrl}/callback`;
+  }
+
+  if (req && req.headers?.host && !/localhost/i.test(req.headers.host)) {
     const proto = req.headers['x-forwarded-proto'] || 'https';
     return `${proto}://${req.headers.host}/callback`;
   }
+
   return 'https://pacific-flowers-meli-ads.vercel.app/callback';
 }
 
+export function getFrontendBaseUrl(req) {
+  const envApiUrl = (process.env.VITE_API_URL || process.env.FRONTEND_URL || '')
+    .trim()
+    .replace(/\/$/, '');
+
+  if (envApiUrl && (!process.env.VERCEL || !/localhost/i.test(envApiUrl))) {
+    return envApiUrl;
+  }
+
+  if (req && req.headers?.host) {
+    const proto =
+      req.headers['x-forwarded-proto'] ||
+      (/localhost/i.test(req.headers.host) ? 'http' : 'https');
+    return `${proto}://${req.headers.host}`;
+  }
+
+  return PRODUCTION_APP_URL;
+}
+
+export function getMeliAuthUrl(req) {
+  const redirectUri = getRedirectUri(req);
+  const { codeChallenge } = getPkcePair();
+  return `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${encodeURIComponent(
+    DEFAULT_APP_ID
+  )}&redirect_uri=${encodeURIComponent(
+    redirectUri
+  )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`;
+}
+
 // ============================================================================
-// Gerenciamento de Sessão Híbrido (Memória + /tmp + Cookie HTTP p/ Serverless)
+// Gerenciamento de Sessão Híbrido + Tratamento de Token Expirado (Pilar 5)
 // ============================================================================
 let authSession = {
   access_token: process.env.ML_ACCESS_TOKEN || null,
@@ -253,6 +335,30 @@ function setSessionCookie(res, sessionObj) {
   }
 }
 
+function clearExpiredSession(res = null) {
+  authSession = {
+    access_token: null,
+    refresh_token: null,
+    user_id: null,
+    expires_at: null,
+  };
+  itemsCache.data = null;
+
+  if (res) {
+    try {
+      const isProd = Boolean(process.env.VERCEL);
+      res.setHeader(
+        'Set-Cookie',
+        `meli_session=; Path=/; Max-Age=0; SameSite=Lax${isProd ? '; Secure' : ''}`
+      );
+    } catch {
+      // Ignora falha ao limpar header
+    }
+  }
+
+  fs.unlink(TOKEN_STORE_PATH).catch(() => {});
+}
+
 function hydrateSessionFromCookie(req) {
   try {
     const cookies = parseCookies(req);
@@ -262,11 +368,13 @@ function hydrateSessionFromCookie(req) {
       );
       if (decoded && decoded.access_token) {
         authSession = { ...authSession, ...decoded };
+        return true;
       }
     }
   } catch {
     // Cookie inválido ou ausente
   }
+  return false;
 }
 
 let demoItems = [
@@ -307,6 +415,18 @@ let demoAdsCampaigns = [
     ads_spend_30d: 1659.9,
     acos: 11.2,
   },
+  {
+    id: 'CMP-9081722',
+    item_id: 'MLB3948102938',
+    name: 'Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers',
+    thumbnail: 'https://http2.mlstatic.com/D_NQ_NP_2X_601411-MLA74651415532_022024-F.webp',
+    status: 'paused',
+    budget: 45.0,
+    kit_price: 69.9,
+    ads_revenue_30d: 3120.0,
+    ads_spend_30d: 686.4,
+    acos: 22.0,
+  },
 ];
 
 const itemsCache = {
@@ -316,13 +436,15 @@ const itemsCache = {
 };
 
 // ============================================================================
-// Motor Matemático: Simulador de Margem e Gatilho de Frete Grátis (R$ 79,00)
+// Pilar 2: Motor Matemático — Simulador de Margem e Gatilho R$ 79,00 (16% B2B)
 // ============================================================================
 export function calculatePricingMetrics(price, productCost = 0) {
   const safePrice = Number(price) || 0;
   const safeCost = Number(productCost) || 0;
   const isFreeShippingTriggered = safePrice >= 79;
 
+  // Regra oficial: Se Preço >= 79, taxa fixa (R$ 6) é zerada e frete vendedor (R$ 21) é aplicado.
+  // Se Preço < 79, comissão 16% + R$ 6,00 de taxa fixa e frete vendedor R$ 0,00.
   const fixedFee = isFreeShippingTriggered ? 0.0 : 6.0;
   const mlCommission = safePrice * 0.16 + fixedFee;
   const sellerShippingCost = isFreeShippingTriggered ? 21.0 : 0.0;
@@ -332,6 +454,7 @@ export function calculatePricingMetrics(price, productCost = 0) {
 
   return {
     product_cost: Number(safeCost.toFixed(2)),
+    fixed_fee: Number(fixedFee.toFixed(2)),
     ml_fee_estimate: Number(mlCommission.toFixed(2)),
     seller_shipping_cost: Number(sellerShippingCost.toFixed(2)),
     net_profit: Number(netProfit.toFixed(2)),
@@ -366,6 +489,12 @@ async function resolveUserId(token) {
   const meResponse = await fetch(`${ML_API_BASE}/users/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  if (meResponse.status === 401) {
+    const err = new Error('Sessão do Mercado Livre expirada (401 em /users/me).');
+    err.code = 'TOKEN_EXPIRED';
+    err.status = 401;
+    throw err;
+  }
   if (!meResponse.ok) {
     throw new Error('Não foi possível obter os dados do usuário (/users/me). Verifique o token.');
   }
@@ -425,22 +554,9 @@ async function saveTokens(sessionData, res = null) {
   }
 }
 
-async function ensureValidAccessToken(req, res) {
-  hydrateSessionFromCookie(req);
-
-  if (!authSession.access_token) {
-    await loadSavedState();
-  }
-
-  if (!authSession.access_token) {
-    return null;
-  }
-
-  if (
-    authSession.expires_at &&
-    Date.now() > authSession.expires_at - 60_000 &&
-    authSession.refresh_token
-  ) {
+async function refreshAccessToken(res = null) {
+  if (!authSession.refresh_token) return null;
+  try {
     const body = new URLSearchParams({
       grant_type: 'refresh_token',
       client_id: DEFAULT_APP_ID,
@@ -460,15 +576,70 @@ async function ensureValidAccessToken(req, res) {
     if (response.ok) {
       const tokenData = await response.json();
       await saveTokens(tokenData, res);
+      return authSession.access_token;
+    }
+  } catch (err) {
+    console.warn('[Auth] Falha ao tentar refresh_token:', err.message);
+  }
+  return null;
+}
+
+async function ensureValidAccessToken(req, res) {
+  const hadCookie = hydrateSessionFromCookie(req);
+
+  if (!authSession.access_token) {
+    await loadSavedState();
+  }
+
+  const clientExpectedAuth =
+    req?.headers?.['x-meli-authenticated'] === 'true' ||
+    req?.query?.require_auth === 'true' ||
+    hadCookie;
+
+  if (!authSession.access_token) {
+    if (req?.headers?.['x-meli-authenticated'] === 'true') {
+      const err = new Error('Sessão do Mercado Livre expirada.');
+      err.code = 'TOKEN_EXPIRED';
+      err.status = 401;
+      throw err;
+    }
+    return null;
+  }
+
+  // Verifica se o token expirou
+  if (authSession.expires_at && Date.now() > authSession.expires_at - 60_000) {
+    const refreshed = await refreshAccessToken(res);
+    if (!refreshed) {
+      clearExpiredSession(res);
+      if (clientExpectedAuth) {
+        const err = new Error('Seu access_token do Mercado Livre expirou.');
+        err.code = 'TOKEN_EXPIRED';
+        err.status = 401;
+        throw err;
+      }
+      return null;
     }
   }
+
   return authSession.access_token;
 }
 
+function sendTokenExpiredResponse(req, res, message) {
+  clearExpiredSession(res);
+  return res.status(401).json({
+    error: 'token_expired',
+    token_expired: true,
+    auth_url: getMeliAuthUrl(req),
+    message:
+      message ||
+      'Sua sessão do Mercado Livre expirou. Redirecionando para a tela de login...',
+  });
+}
+
 // ============================================================================
-// Execução Real das Funções (Tools) conectadas aos Endpoints da API do ML
+// Execução Real da Atualização de Anúncio (Exclusiva para o botão Salvar no Modal)
 // ============================================================================
-async function executeMeliItemUpdate(itemId, updateFields, token) {
+async function executeMeliItemUpdate(itemId, updateFields, token, res = null) {
   if (!token) {
     const idx = demoItems.findIndex((item) => item.id === itemId);
     if (idx !== -1) {
@@ -482,25 +653,47 @@ async function executeMeliItemUpdate(itemId, updateFields, token) {
     return {
       source: 'demo',
       success: true,
-      item: { id: itemId, ...updateFields },
+      item: enrichItemWithMetrics({ id: itemId, ...updateFields }),
     };
   }
 
-  const mlResponse = await fetch(`${ML_API_BASE}/items/${encodeURIComponent(itemId)}`, {
+  let activeToken = token;
+  let mlResponse = await fetch(`${ML_API_BASE}/items/${encodeURIComponent(itemId)}`, {
     method: 'PUT',
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${activeToken}`,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
     body: JSON.stringify(updateFields),
   });
 
-  const mlData = await mlResponse.json();
+  if (mlResponse.status === 401) {
+    const refreshed = await refreshAccessToken(res);
+    if (!refreshed) {
+      const err = new Error('Token do Mercado Livre expirado ao salvar anúncio.');
+      err.code = 'TOKEN_EXPIRED';
+      err.status = 401;
+      throw err;
+    }
+    activeToken = refreshed;
+    mlResponse = await fetch(`${ML_API_BASE}/items/${encodeURIComponent(itemId)}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${activeToken}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(updateFields),
+    });
+  }
+
+  const mlData = await mlResponse.json().catch(() => ({}));
   if (!mlResponse.ok) {
     return {
       source: 'live',
       success: false,
+      status: mlResponse.status,
       error: mlData.message || 'Falha ao atualizar item na API do Mercado Livre.',
       details: mlData,
     };
@@ -530,23 +723,30 @@ async function executeMeliItemUpdate(itemId, updateFields, token) {
   };
 }
 
-const HUMAN_IN_THE_LOOP_MESSAGE =
+// ============================================================================
+// Pilar 4: Trava Absoluta Human-in-the-Loop nas Tools da IA (Sem HTTP PUT direto)
+// ============================================================================
+export const HUMAN_IN_THE_LOOP_MESSAGE =
   'Preparei a atualização do anúncio. Verifique os dados na tela e clique em Salvar para enviar ao Mercado Livre.';
 
 function createMeliToolExecutors() {
   return {
-    // Human-in-the-Loop: NÃO envia HTTP PUT direto ao Mercado Livre; prepara os dados para o modal!
+    // NUNCA realiza fetch/PUT para o Mercado Livre! Devolve apenas o JSON para abrir o Modal de Edição.
     atualizar_preco_anuncio: async ({ item_id, price }) => {
       const numericPrice = Number(price);
       if (Number.isNaN(numericPrice) || numericPrice <= 0) {
         return { error: 'Preço inválido.' };
       }
-      const metrics = calculatePricingMetrics(numericPrice, productCostsMap[item_id] || 0);
+      const normalizedId = String(item_id || 'MLB3948102938')
+        .toUpperCase()
+        .replace('-', '');
+      const metrics = calculatePricingMetrics(numericPrice, productCostsMap[normalizedId] || 0);
       return {
         success: true,
         human_in_the_loop: true,
+        direct_api_call_blocked: true,
         status: 'pending_human_approval',
-        item_id: String(item_id).toUpperCase().replace('-', ''),
+        item_id: normalizedId,
         proposed_fields: {
           price: Number(numericPrice.toFixed(2)),
         },
@@ -564,11 +764,15 @@ function createMeliToolExecutors() {
       if (Number.isNaN(qty) || qty < 0) {
         return { error: 'Quantidade de estoque inválida.' };
       }
+      const normalizedId = String(item_id || 'MLB3948102938')
+        .toUpperCase()
+        .replace('-', '');
       return {
         success: true,
         human_in_the_loop: true,
+        direct_api_call_blocked: true,
         status: 'pending_human_approval',
-        item_id: String(item_id).toUpperCase().replace('-', ''),
+        item_id: normalizedId,
         proposed_fields: {
           available_quantity: qty,
         },
@@ -588,11 +792,15 @@ function createMeliToolExecutors() {
             'Ação bloqueada pelo Auditor de Conformidade do Mercado Livre. Explique a regra violada ao usuário e sugira o título corrigido.',
         };
       }
+      const normalizedId = String(item_id || 'MLB3948102938')
+        .toUpperCase()
+        .replace('-', '');
       return {
         success: true,
         human_in_the_loop: true,
+        direct_api_call_blocked: true,
         status: 'pending_human_approval',
-        item_id: String(item_id).toUpperCase().replace('-', ''),
+        item_id: normalizedId,
         proposed_fields: {
           title: String(title).trim(),
         },
@@ -611,6 +819,7 @@ app.get('/api/chat/config', (req, res) => {
     system_prompt: COPILOT_SYSTEM_PROMPT,
     tools: COPILOT_TOOLS.map((t) => t.name),
     human_in_the_loop: true,
+    direct_ml_put_disabled_in_chat: true,
     gemini_configured: Boolean(process.env.GEMINI_API_KEY),
   });
 });
@@ -628,7 +837,6 @@ app.post('/api/chat', async (req, res) => {
   const toolExecutors = createMeliToolExecutors();
   const resolvedApiKey = (gemini_api_key || process.env.GEMINI_API_KEY || '').trim();
 
-  // Caso a chave GEMINI_API_KEY esteja disponível, executa o ciclo Interactions API (gemini-3.8-flash)
   if (resolvedApiKey) {
     try {
       const ai = new GoogleGenAI({ apiKey: resolvedApiKey });
@@ -715,8 +923,20 @@ app.post('/api/chat', async (req, res) => {
   const mlbMatch = text.match(/\b(MLB[-_]?\d+)\b/i);
   const itemId = mlbMatch ? mlbMatch[1].toUpperCase().replace('-', '') : 'MLB3948102938';
   const executedTools = [];
+  const combinedProposedFields = {};
 
-  // 1) Verifica se o usuário pediu otimização/alteração de título
+  // 1) Verifica se há violação de HTML na descrição
+  if (/<[a-z][\s\S]*>/i.test(text)) {
+    return res.json({
+      reply:
+        'Recuso gentilmente esta descrição: pelas **Regras de Descrição do Mercado Livre**, é terminantemente proibido o uso de **código HTML**. Utilize apenas texto puro estruturado com medidas exatas, material, formato e aplicação (ex: Gramatura 90g, Poliestireno UV).',
+      executed_tools: [],
+      pending_approval: null,
+      system_prompt_active: true,
+    });
+  }
+
+  // 2) Verifica se o usuário pediu otimização/alteração de título
   const titleQuoteMatch = text.match(/["'“”]([^"'“”]{5,120})["'“”]/);
   if (/t[ií]tulo|otimiz|renome/i.test(text) && titleQuoteMatch) {
     const candidateTitle = titleQuoteMatch[1];
@@ -744,29 +964,7 @@ app.post('/api/chat', async (req, res) => {
       arguments: { item_id: itemId, title: candidateTitle },
       result: toolResult,
     });
-
-    return res.json({
-      reply: HUMAN_IN_THE_LOOP_MESSAGE,
-      executed_tools: executedTools,
-      pending_approval: {
-        item_id: itemId,
-        tool_name: 'otimizar_titulo_b2b',
-        title: candidateTitle,
-        proposed_fields: { title: candidateTitle },
-      },
-      system_prompt_active: true,
-    });
-  }
-
-  // 2) Verifica se há violação de HTML na descrição
-  if (/<[a-z][\s\S]*>/i.test(text)) {
-    return res.json({
-      reply:
-        'Recuso gentilmente esta descrição: pelas **Regras de Descrição do Mercado Livre**, é terminantemente proibido o uso de **código HTML**. Utilize apenas texto puro estruturado com medidas exatas, material, formato e aplicação (ex: Gramatura 90g, Poliestireno UV).',
-      executed_tools: [],
-      pending_approval: null,
-      system_prompt_active: true,
-    });
+    combinedProposedFields.title = candidateTitle;
   }
 
   // 3) Verifica comando de atualização de preço (Human-in-the-Loop)
@@ -785,18 +983,7 @@ app.post('/api/chat', async (req, res) => {
       arguments: { item_id: itemId, price: newPrice },
       result: toolResult,
     });
-
-    return res.json({
-      reply: HUMAN_IN_THE_LOOP_MESSAGE,
-      executed_tools: executedTools,
-      pending_approval: {
-        item_id: itemId,
-        tool_name: 'atualizar_preco_anuncio',
-        price: Number(newPrice.toFixed(2)),
-        proposed_fields: { price: Number(newPrice.toFixed(2)) },
-      },
-      system_prompt_active: true,
-    });
+    combinedProposedFields.price = Number(newPrice.toFixed(2));
   }
 
   // 4) Verifica comando de atualização de estoque (Human-in-the-Loop)
@@ -812,15 +999,18 @@ app.post('/api/chat', async (req, res) => {
       arguments: { item_id: itemId, available_quantity: newQty },
       result: toolResult,
     });
+    combinedProposedFields.available_quantity = newQty;
+  }
 
+  if (Object.keys(combinedProposedFields).length > 0) {
     return res.json({
       reply: HUMAN_IN_THE_LOOP_MESSAGE,
       executed_tools: executedTools,
       pending_approval: {
         item_id: itemId,
-        tool_name: 'atualizar_estoque',
-        available_quantity: newQty,
-        proposed_fields: { available_quantity: newQty },
+        tool_name: executedTools.map((t) => t.name).join('+'),
+        ...combinedProposedFields,
+        proposed_fields: combinedProposedFields,
       },
       system_prompt_active: true,
     });
@@ -835,59 +1025,76 @@ app.post('/api/chat', async (req, res) => {
 });
 
 // ============================================================================
-// Troca do Código OAuth 2.0 com suporte automático a PKCE (code_verifier)
+// Pilar 1: Troca do Código OAuth 2.0 com try/catch robusto e PKCE
 // ============================================================================
 async function exchangeCodeForToken(code, req, res) {
-  const { codeVerifier } = getPkcePair();
-  const redirectUri = getRedirectUri(req);
+  try {
+    const { codeVerifier } = getPkcePair();
+    const redirectUri = getRedirectUri(req);
 
-  const payloadWithPkce = new URLSearchParams({
-    grant_type: 'authorization_code',
-    client_id: DEFAULT_APP_ID,
-    client_secret: DEFAULT_SECRET_KEY,
-    code: String(code),
-    redirect_uri: redirectUri,
-    code_verifier: codeVerifier,
-  });
+    const payloadWithPkce = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: DEFAULT_APP_ID,
+      client_secret: DEFAULT_SECRET_KEY,
+      code: String(code).trim(),
+      redirect_uri: redirectUri,
+      code_verifier: codeVerifier,
+    });
 
-  const response = await fetch(`${ML_API_BASE}/oauth/token`, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: payloadWithPkce,
-  });
+    const response = await fetch(`${ML_API_BASE}/oauth/token`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: payloadWithPkce,
+    });
 
-  const data = await response.json();
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = {
+        message: 'A API do Mercado Livre retornou uma resposta inválida ao gerar o token.',
+      };
+    }
 
-  if (!response.ok) {
-    const error = new Error(
-      data.message || data.error_description || 'Falha na autenticação OAuth 2.0'
+    if (!response.ok) {
+      const error = new Error(
+        data.message ||
+          data.error_description ||
+          'Não foi possível obter o token de acesso do Mercado Livre. Tente autenticar novamente.'
+      );
+      error.status = response.status || 400;
+      error.details = data;
+      throw error;
+    }
+
+    await saveTokens(data, res);
+    return data;
+  } catch (err) {
+    const friendlyError = new Error(
+      err.message ||
+        'Falha de comunicação com o servidor OAuth 2.0 do Mercado Livre. Por favor, tente novamente.'
     );
-    error.status = response.status;
-    error.details = data;
-    throw error;
+    friendlyError.status = err.status || 500;
+    friendlyError.details = err.details || null;
+    throw friendlyError;
   }
-
-  await saveTokens(data, res);
-  return data;
 }
 
 // ============================================================================
-// 1. OAuth 2.0 Endpoints (Authorization URL com PKCE, Status & Callback)
+// 1. OAuth 2.0 Endpoints (Authorization URL com PKCE, Status & Callback c/ try/catch)
 // ============================================================================
 app.get('/api/auth/status', async (req, res) => {
-  await ensureValidAccessToken(req, res);
+  try {
+    await ensureValidAccessToken(req, res);
+  } catch {
+    // Se expirou, apenas reporta authenticated: false no status check inicial
+  }
 
   const redirectUri = getRedirectUri(req);
-  const { codeChallenge } = getPkcePair();
-
-  const authUrl = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${encodeURIComponent(
-    DEFAULT_APP_ID
-  )}&redirect_uri=${encodeURIComponent(
-    redirectUri
-  )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`;
+  const authUrl = getMeliAuthUrl(req);
 
   res.json({
     authenticated: Boolean(authSession.access_token),
@@ -900,66 +1107,86 @@ app.get('/api/auth/status', async (req, res) => {
 });
 
 app.get('/api/auth/login', (req, res) => {
-  const redirectUri = getRedirectUri(req);
-  const { codeChallenge } = getPkcePair();
-  const authUrl = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${encodeURIComponent(
-    DEFAULT_APP_ID
-  )}&redirect_uri=${encodeURIComponent(
-    redirectUri
-  )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`;
-
+  const authUrl = getMeliAuthUrl(req);
   return res.redirect(authUrl);
 });
 
 const handleOAuthCallback = async (req, res) => {
-  const code = req.query.code || req.body?.code;
-
-  if (!code) {
-    return res.status(400).json({
-      error: 'missing_code',
-      message: 'Parâmetro "code" não informado na URL de callback do Mercado Livre.',
-    });
-  }
+  const isBrowserNavigation =
+    req.method === 'GET' &&
+    req.headers.accept &&
+    req.headers.accept.includes('text/html');
+  const frontendUrl = getFrontendBaseUrl(req);
 
   try {
-    const tokenData = await exchangeCodeForToken(code, req, res);
+    const mlError = req.query.error || req.body?.error;
+    const mlErrorDesc = req.query.error_description || req.body?.error_description;
 
-    if (req.headers.accept && req.headers.accept.includes('text/html') && req.method === 'GET') {
-      const proto = req.headers['x-forwarded-proto'] || 'https';
-      const baseHost = req.headers.host
-        ? `${proto}://${req.headers.host}`
-        : 'http://localhost:3000';
-      const frontendUrl = process.env.FRONTEND_URL || baseHost;
-      return res.redirect(`${frontendUrl}/?auth=success&user_id=${tokenData.user_id}`);
+    if (mlError) {
+      const friendlyMsg =
+        mlErrorDesc ||
+        `O Mercado Livre recusou ou cancelou a autorização (${mlError}). Clique em "Conectar OAuth 2.0" para tentar novamente.`;
+      if (isBrowserNavigation) {
+        return res.redirect(
+          `${frontendUrl}/?auth=error&auth_message=${encodeURIComponent(friendlyMsg)}`
+        );
+      }
+      return res.status(400).json({
+        error: 'oauth_provider_error',
+        message: friendlyMsg,
+        auth_url: getMeliAuthUrl(req),
+      });
     }
 
-    return res.json({
+    const code = req.query.code || req.body?.code;
+
+    if (!code) {
+      const missingCodeMsg =
+        'Código de autorização (code) não recebido do Mercado Livre. Inicie a conexão novamente pelo botão Conectar OAuth 2.0.';
+      if (isBrowserNavigation) {
+        return res.redirect(
+          `${frontendUrl}/?auth=error&auth_message=${encodeURIComponent(missingCodeMsg)}`
+        );
+      }
+      return res.status(400).json({
+        error: 'missing_code',
+        message: missingCodeMsg,
+        auth_url: getMeliAuthUrl(req),
+      });
+    }
+
+    const tokenData = await exchangeCodeForToken(code, req, res);
+
+    if (isBrowserNavigation) {
+      return res.redirect(
+        `${frontendUrl}/?auth=success&user_id=${encodeURIComponent(tokenData.user_id || '')}`
+      );
+    }
+
+    return res.status(200).json({
       message: 'Autenticação OAuth 2.0 concluída com sucesso!',
       user_id: tokenData.user_id,
       expires_in: tokenData.expires_in,
       scope: tokenData.scope,
+      redirect_uri: getRedirectUri(req),
     });
   } catch (error) {
-    if (
-      req.headers.accept &&
-      req.headers.accept.includes('text/html') &&
-      req.method === 'GET' &&
-      !req.query.retried
-    ) {
-      const redirectUri = getRedirectUri(req);
-      const { codeChallenge } = getPkcePair();
-      const freshAuthUrl = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${encodeURIComponent(
-        DEFAULT_APP_ID
-      )}&redirect_uri=${encodeURIComponent(
-        redirectUri
-      )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`;
-      return res.redirect(freshAuthUrl);
+    const friendlyMessage =
+      error.message ||
+      'A API do Mercado Livre falhou ao entregar o token de acesso. Verifique sua conexão e tente autenticar novamente.';
+
+    // Evita tela branca no navegador: redireciona de forma segura para a interface React exibir o alerta amigável
+    if (isBrowserNavigation) {
+      return res.redirect(
+        `${frontendUrl}/?auth=error&auth_message=${encodeURIComponent(friendlyMessage)}`
+      );
     }
 
     return res.status(error.status || 500).json({
       error: 'oauth_exchange_failed',
-      message: error.message,
+      message: friendlyMessage,
       details: error.details || null,
+      auth_url: getMeliAuthUrl(req),
     });
   }
 };
@@ -980,6 +1207,14 @@ async function fetchAllSellerItemIds(userId, token) {
   const firstRes = await fetch(firstUrl, {
     headers: { Authorization: `Bearer ${token}` },
   });
+
+  if (firstRes.status === 401) {
+    const err = new Error('Sessão do Mercado Livre expirada ao buscar anúncios.');
+    err.code = 'TOKEN_EXPIRED';
+    err.status = 401;
+    throw err;
+  }
+
   const firstData = await firstRes.json();
 
   if (!firstRes.ok) {
@@ -1022,7 +1257,7 @@ app.get('/api/items', async (req, res) => {
 
     if (!token || mode === 'demo') {
       const enrichedDemo = demoItems.map(enrichItemWithMetrics);
-      return res.json({
+      return res.status(200).json({
         source: 'demo',
         user_id: 'PACIFIC_FLOWERS_DEMO',
         total: enrichedDemo.length,
@@ -1031,7 +1266,7 @@ app.get('/api/items', async (req, res) => {
     }
 
     if (!forceRefresh && itemsCache.data && Date.now() - itemsCache.timestamp < itemsCache.ttlMs) {
-      return res.json({
+      return res.status(200).json({
         source: 'cache',
         user_id: authSession.user_id,
         total: itemsCache.data.length,
@@ -1045,7 +1280,7 @@ app.get('/api/items', async (req, res) => {
     if (itemIds.length === 0) {
       itemsCache.data = [];
       itemsCache.timestamp = Date.now();
-      return res.json({
+      return res.status(200).json({
         source: 'live',
         user_id: userId,
         total: 0,
@@ -1066,6 +1301,12 @@ app.get('/api/items', async (req, res) => {
         const resBatch = await fetch(multiGetUrl, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (resBatch.status === 401) {
+          const err = new Error('Token expirado durante o Multiget.');
+          err.code = 'TOKEN_EXPIRED';
+          err.status = 401;
+          throw err;
+        }
         if (!resBatch.ok) {
           throw new Error(`Falha no Multiget de itens (HTTP ${resBatch.status})`);
         }
@@ -1092,13 +1333,16 @@ app.get('/api/items', async (req, res) => {
     itemsCache.data = items;
     itemsCache.timestamp = Date.now();
 
-    return res.json({
+    return res.status(200).json({
       source: 'live',
       user_id: userId,
       total: totalExpected,
       items,
     });
   } catch (error) {
+    if (error.code === 'TOKEN_EXPIRED' || error.status === 401) {
+      return sendTokenExpiredResponse(req, res, error.message);
+    }
     return res.status(500).json({
       error: 'internal_error',
       message: error.message || 'Erro interno ao listar anúncios.',
@@ -1107,11 +1351,11 @@ app.get('/api/items', async (req, res) => {
 });
 
 // ============================================================================
-// 3. Rota PUT para atualizar Preço, Estoque e Custo do Produto (Pacific Flowers)
+// 3. Rota PUT para atualizar Preço, Estoque, Título e Custo do Produto
 // ============================================================================
 app.put('/api/items/:id', async (req, res) => {
   const { id } = req.params;
-  const { price, available_quantity, product_cost, title } = req.body;
+  const { price, available_quantity, product_cost, title } = req.body || {};
 
   const parsedPrice = price !== undefined ? Number(price) : undefined;
   const parsedQuantity = available_quantity !== undefined ? Number(available_quantity) : undefined;
@@ -1145,21 +1389,24 @@ app.put('/api/items/:id', async (req, res) => {
 
   try {
     const token = await ensureValidAccessToken(req, res);
-    const result = await executeMeliItemUpdate(id, updatePayload, token);
+    const result = await executeMeliItemUpdate(id, updatePayload, token, res);
     if (!result.success) {
-      return res.status(400).json({
+      return res.status(result.status || 400).json({
         error: 'ml_update_failed',
         message: result.error,
         details: result.details,
       });
     }
 
-    return res.json({
+    return res.status(200).json({
       source: result.source,
       message: 'Anúncio atualizado com sucesso!',
       item: result.item,
     });
   } catch (error) {
+    if (error.code === 'TOKEN_EXPIRED' || error.status === 401) {
+      return sendTokenExpiredResponse(req, res, error.message);
+    }
     return res.status(500).json({
       error: 'update_exception',
       message: error.message || 'Erro interno ao atualizar anúncio.',
@@ -1168,7 +1415,7 @@ app.put('/api/items/:id', async (req, res) => {
 });
 
 // ============================================================================
-// 4. Módulo Mercado Ads (Advertising API do Mercado Livre)
+// 4. Módulo Mercado Ads (Advertising API do Mercado Livre) — Pilar 3 & 5
 // ============================================================================
 app.get('/api/ads/campaigns', async (req, res) => {
   const mode = req.query.mode;
@@ -1177,7 +1424,7 @@ app.get('/api/ads/campaigns', async (req, res) => {
     const token = await ensureValidAccessToken(req, res);
 
     if (!token || mode === 'demo') {
-      return res.json({
+      return res.status(200).json({
         source: 'demo',
         campaigns: demoAdsCampaigns.map((c) => ({
           ...c,
@@ -1201,9 +1448,16 @@ app.get('/api/ads/campaigns', async (req, res) => {
       },
     });
 
-    const mlData = await mlResponse.json();
+    if (mlResponse.status === 401) {
+      const refreshed = await refreshAccessToken(res);
+      if (!refreshed) {
+        return sendTokenExpiredResponse(req, res);
+      }
+    }
+
+    const mlData = await mlResponse.json().catch(() => ({}));
     if (!mlResponse.ok) {
-      return res.json({
+      return res.status(200).json({
         source: 'live',
         user_id: userId,
         campaigns: [],
@@ -1240,12 +1494,15 @@ app.get('/api/ads/campaigns', async (req, res) => {
       };
     });
 
-    return res.json({
+    return res.status(200).json({
       source: 'live',
       user_id: userId,
       campaigns,
     });
   } catch (error) {
+    if (error.code === 'TOKEN_EXPIRED' || error.status === 401) {
+      return sendTokenExpiredResponse(req, res, error.message);
+    }
     return res.status(500).json({
       error: 'ads_campaigns_exception',
       message: error.message || 'Erro interno ao buscar campanhas do Mercado Ads.',
@@ -1279,7 +1536,7 @@ app.get('/api/ads/metrics', async (req, res) => {
       const globalAcos =
         totalRevenue30d > 0 ? Number(((totalSpend30d / totalRevenue30d) * 100).toFixed(2)) : 0;
 
-      return res.json({
+      return res.status(200).json({
         source: 'demo',
         period: { date_from, date_to, days: 30 },
         summary: {
@@ -1304,9 +1561,16 @@ app.get('/api/ads/metrics', async (req, res) => {
       },
     });
 
-    const mlData = await mlResponse.json();
+    if (mlResponse.status === 401) {
+      const refreshed = await refreshAccessToken(res);
+      if (!refreshed) {
+        return sendTokenExpiredResponse(req, res);
+      }
+    }
+
+    const mlData = await mlResponse.json().catch(() => ({}));
     if (!mlResponse.ok) {
-      return res.json({
+      return res.status(200).json({
         source: 'live',
         period: { date_from, date_to, days: 30 },
         summary: { total_revenue_30d: 0, total_spend_30d: 0, average_acos: 0 },
@@ -1343,7 +1607,7 @@ app.get('/api/ads/metrics', async (req, res) => {
     const globalAcos =
       totalRevenue30d > 0 ? Number(((totalSpend30d / totalRevenue30d) * 100).toFixed(2)) : 0;
 
-    return res.json({
+    return res.status(200).json({
       source: 'live',
       period: { date_from, date_to, days: 30 },
       summary: {
@@ -1354,6 +1618,9 @@ app.get('/api/ads/metrics', async (req, res) => {
       metrics_by_campaign: metricsById,
     });
   } catch (error) {
+    if (error.code === 'TOKEN_EXPIRED' || error.status === 401) {
+      return sendTokenExpiredResponse(req, res, error.message);
+    }
     return res.status(500).json({
       error: 'ads_metrics_exception',
       message: error.message || 'Erro interno ao buscar métricas de 30 dias.',
@@ -1363,7 +1630,7 @@ app.get('/api/ads/metrics', async (req, res) => {
 
 app.put('/api/ads/campaigns/:id', async (req, res) => {
   const { id } = req.params;
-  const { status, budget } = req.body;
+  const { status, budget } = req.body || {};
 
   const updatePayload = {};
   if (status !== undefined) {
@@ -1411,7 +1678,7 @@ app.put('/api/ads/campaigns/:id', async (req, res) => {
         ...updatePayload,
       };
 
-      return res.json({
+      return res.status(200).json({
         source: 'demo',
         message: `Campanha ${id} atualizada com sucesso!`,
         campaign: {
@@ -1421,12 +1688,13 @@ app.put('/api/ads/campaigns/:id', async (req, res) => {
       });
     }
 
-    const mlResponse = await fetch(
+    let activeToken = token;
+    let mlResponse = await fetch(
       `${ML_API_BASE}/advertising/product_ads/campaigns/${encodeURIComponent(id)}`,
       {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${activeToken}`,
           'api-version': '2',
           'Content-Type': 'application/json',
           Accept: 'application/json',
@@ -1435,9 +1703,30 @@ app.put('/api/ads/campaigns/:id', async (req, res) => {
       }
     );
 
-    const mlData = await mlResponse.json();
+    if (mlResponse.status === 401) {
+      const refreshed = await refreshAccessToken(res);
+      if (!refreshed) {
+        return sendTokenExpiredResponse(req, res);
+      }
+      activeToken = refreshed;
+      mlResponse = await fetch(
+        `${ML_API_BASE}/advertising/product_ads/campaigns/${encodeURIComponent(id)}`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${activeToken}`,
+            'api-version': '2',
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify(updatePayload),
+        }
+      );
+    }
+
+    const mlData = await mlResponse.json().catch(() => ({}));
     if (!mlResponse.ok) {
-      return res.status(mlResponse.status).json({
+      return res.status(mlResponse.status || 400).json({
         error: 'ml_ads_update_failed',
         message:
           mlData.message || 'Falha ao atualizar campanha na Advertising API do Mercado Livre.',
@@ -1445,9 +1734,9 @@ app.put('/api/ads/campaigns/:id', async (req, res) => {
       });
     }
 
-    return res.json({
+    return res.status(200).json({
       source: 'live',
-      message: `Campanha ${id} atualizada no Mercado Ads!`,
+      message: `Campanha ${id} atualizada no Mercado Ads com sucesso!`,
       campaign: {
         id: String(mlData.id || id),
         status: mlData.status || updatePayload.status,
@@ -1455,6 +1744,9 @@ app.put('/api/ads/campaigns/:id', async (req, res) => {
       },
     });
   } catch (error) {
+    if (error.code === 'TOKEN_EXPIRED' || error.status === 401) {
+      return sendTokenExpiredResponse(req, res, error.message);
+    }
     return res.status(500).json({
       error: 'ads_update_exception',
       message: error.message || 'Erro interno ao atualizar campanha do Mercado Ads.',

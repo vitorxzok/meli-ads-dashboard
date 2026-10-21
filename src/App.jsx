@@ -1,17 +1,46 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 
 const brlFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
 });
 
+const PRODUCTION_DOMAIN = 'https://pacific-flowers-meli-ads.vercel.app';
+const ENV_API_BASE = (import.meta.env?.VITE_API_URL || '').trim().replace(/\/$/, '');
+
+// Resolve a URL base da API sem nunca travar em localhost:3000 na produção
+function resolveApiBaseUrl() {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return '';
+    }
+  }
+  if (ENV_API_BASE && !/localhost/i.test(ENV_API_BASE)) {
+    return ENV_API_BASE;
+  }
+  return '';
+}
+
+const API_BASE = resolveApiBaseUrl();
+export const PRODUCTION_REDIRECT_URI = `${
+  ENV_API_BASE && !/localhost/i.test(ENV_API_BASE) ? ENV_API_BASE : PRODUCTION_DOMAIN
+}/callback`;
+
+// ============================================================================
+// Pilar 2: Motor Matemático do Simulador de Margem e Gatilho de R$ 79,00 (16% B2B)
+// ============================================================================
 export function calculateMeliSimulator(salePrice, productCost) {
   const price = Number(salePrice) || 0;
   const cost = Number(productCost) || 0;
   const isFreeShippingEligible = price >= 79;
 
+  // Regra confirmada:
+  // Se Preço >= 79: Taxa fixa (R$ 6,00) é zerada e Custo de Frete Vendedor (R$ 21,00) é aplicado.
+  // Se Preço < 79: Comissão 16% + R$ 6,00 de Taxa Fixa e Custo de Frete Vendedor R$ 0,00.
   const fixedFee = isFreeShippingEligible ? 0.0 : 6.0;
-  const mlCommission = price * 0.16 + fixedFee;
+  const baseCommission16 = price * 0.16;
+  const mlCommission = baseCommission16 + fixedFee;
   const sellerShippingCost = isFreeShippingEligible ? 21.0 : 0.0;
 
   const netProfit = price - cost - mlCommission - sellerShippingCost;
@@ -20,6 +49,7 @@ export function calculateMeliSimulator(salePrice, productCost) {
   return {
     price,
     productCost: cost,
+    baseCommission16,
     fixedFee,
     mlCommission,
     sellerShippingCost,
@@ -32,7 +62,120 @@ export function calculateMeliSimulator(salePrice, productCost) {
   };
 }
 
-export default function App() {
+// ============================================================================
+// Pilar 1: Error Boundary para garantir ZERO Tela Branca no Frontend
+// ============================================================================
+class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, errorMessage: '' };
+  }
+
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      errorMessage: error?.message || 'Erro inesperado na interface.',
+    };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={{
+            minHeight: '100vh',
+            backgroundColor: '#09090b',
+            color: '#f4f4f6',
+            display: 'grid',
+            placeItems: 'center',
+            padding: '2rem',
+            fontFamily: 'Inter, sans-serif',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: '480px',
+              backgroundColor: '#111115',
+              border: '1px solid #ef4444',
+              borderRadius: '12px',
+              padding: '1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+            }}
+          >
+            <h2 style={{ fontSize: '1.15rem', color: '#f87171' }}>
+              ⚠️ Atenção: Ocorreu um erro recuperável
+            </h2>
+            <p style={{ fontSize: '0.88rem', color: '#a1a1aa', lineHeight: 1.5 }}>
+              {this.state.errorMessage}
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  this.setState({ hasError: false, errorMessage: '' });
+                  window.location.replace('/');
+                }}
+              >
+                Voltar ao Painel Principal
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Componente Individual de Toast/Snackbar usando Popover API manual (Modern Web Guidance)
+function ToastItem({ toast, onDismiss }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el && typeof el.showPopover === 'function') {
+      try {
+        el.showPopover();
+      } catch {
+        // Fallback caso o navegador já tenha aberto ou não suporte top-layer
+      }
+    }
+    const timer = setTimeout(() => {
+      onDismiss(toast.id);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [toast.id, onDismiss]);
+
+  return (
+    <div
+      ref={ref}
+      popover="manual"
+      role="status"
+      aria-live="polite"
+      className={`toast-item ${
+        toast.type === 'error' ? 'toast-error' : 'toast-success'
+      }`}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+        <span>{toast.type === 'error' ? '❌' : '✅'}</span>
+        <span>{toast.text}</span>
+      </div>
+      <button
+        type="button"
+        className="toast-close-btn"
+        aria-label="Fechar notificação"
+        onClick={() => onDismiss(toast.id)}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+function DashboardContent() {
   // Controle de Navegação da Sidebar ('ads_items' | 'mercado_ads' | 'copilot_chat')
   const [activeView, setActiveView] = useState('ads_items');
 
@@ -41,13 +184,20 @@ export default function App() {
   const [source, setSource] = useState('loading');
   const [authStatus, setAuthStatus] = useState({
     authenticated: false,
-    auth_url: '/api/auth/login',
+    auth_url: `${API_BASE}/api/auth/login`,
+    redirect_uri: PRODUCTION_REDIRECT_URI,
     user_id: null,
+    expires_at: null,
   });
+  const authRef = useRef(authStatus);
+  useEffect(() => {
+    authRef.current = authStatus;
+  }, [authStatus]);
+
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Estados do Modal de Edição (Human-in-the-Loop + Edição Manual)
+  // Estados do Modal de Edição (Human-in-the-Loop + Edição Manual em Tempo Real)
   const [selectedItem, setSelectedItem] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editPrice, setEditPrice] = useState('');
@@ -56,6 +206,19 @@ export default function App() {
   const [isAiSuggested, setIsAiSuggested] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
+
+  // Pilar 3: Sistema de Notificações Toast / Snackbar
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = useCallback((type, text) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setToasts((prev) => [...prev.slice(-3), { id, type, text }]);
+    setFeedback({ type, text });
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   // Estados do Módulo Mercado Ads (Tráfego Pago)
   const [campaigns, setCampaigns] = useState([]);
@@ -68,9 +231,11 @@ export default function App() {
   const [adsSearchQuery, setAdsSearchQuery] = useState('');
   const [onlyB2BKitsOver79, setOnlyB2BKitsOver79] = useState(false);
   const [budgetDrafts, setBudgetDrafts] = useState({});
-  const [updatingCampaignId, setUpdatingCampaignId] = useState(null);
+  // Pilar 3: Estado de loading individual por campanha ('status' | 'budget') para evitar múltiplos cliques
+  const [campaignLoadingMap, setCampaignLoadingMap] = useState({});
 
-  // Estados do Copiloto B2B (/api/chat com Human-in-the-Loop)
+  // Pilar 4: Estados do Copiloto B2B + Widget no Canto Inferior Direito
+  const [isFloatingChatOpen, setIsFloatingChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([
     {
       role: 'assistant',
@@ -83,6 +248,67 @@ export default function App() {
   const [previousInteractionId, setPreviousInteractionId] = useState(null);
 
   const dialogRef = useRef(null);
+
+  // ==========================================================================
+  // Pilar 5: Interceptor Global de API (Trata CORS, JSON seguro e Token Expirado)
+  // ==========================================================================
+  const apiFetch = useCallback(async (endpoint, options = {}) => {
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+    const headers = {
+      Accept: 'application/json',
+      ...(options.headers || {}),
+    };
+
+    if (authRef.current?.authenticated) {
+      headers['x-meli-authenticated'] = 'true';
+    }
+
+    const response = await fetch(url, {
+      ...options,
+      credentials: 'include',
+      headers,
+    });
+
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = {
+        message: 'Resposta inesperada do servidor. Verifique sua conexão.',
+      };
+    }
+
+    // Interceptor de Token Expirado: redireciona silenciosamente para o Login do Mercado Livre
+    if (
+      response.status === 401 ||
+      data?.token_expired === true ||
+      data?.error === 'token_expired'
+    ) {
+      const targetLoginUrl =
+        data?.auth_url || authRef.current?.auth_url || `${API_BASE}/api/auth/login`;
+      window.location.replace(targetLoginUrl);
+      return { response, data, redirectedToLogin: true };
+    }
+
+    return { response, data, redirectedToLogin: false };
+  }, []);
+
+  // Monitora expiração do access_token em tempo de execução para redirecionamento silencioso
+  useEffect(() => {
+    if (!authStatus.authenticated || !authStatus.expires_at) return;
+
+    const remainingMs = Number(authStatus.expires_at) - Date.now();
+    if (remainingMs <= 0) {
+      window.location.replace(authStatus.auth_url || `${API_BASE}/api/auth/login`);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      window.location.replace(authStatus.auth_url || `${API_BASE}/api/auth/login`);
+    }, remainingMs);
+
+    return () => clearTimeout(timer);
+  }, [authStatus.authenticated, authStatus.expires_at, authStatus.auth_url]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -119,56 +345,82 @@ export default function App() {
     };
   }, []);
 
+  // ==========================================================================
+  // Pilar 1: Inicialização e Tratamento de Erros (try/catch) no Callback OAuth 2.0
+  // ==========================================================================
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const authResult = params.get('auth');
+    const authMessage = params.get('auth_message');
+    const oauthError = params.get('error');
     const returnedUserId = params.get('user_id');
 
     async function init() {
-      if (authResult === 'success') {
-        setFeedback({
-          type: 'success',
-          text: `Conta Mercado Livre conectada com sucesso${
-            returnedUserId ? ` (Seller ID: ${returnedUserId})` : ''
-          }! Carregando todos os anúncios da conta...`,
-        });
-        window.history.replaceState({}, document.title, '/');
-      } else if (code) {
-        try {
-          const res = await fetch(`/api/auth/callback?code=${encodeURIComponent(code)}`);
-          const data = await res.json();
-          if (res.ok) {
-            setFeedback({
-              type: 'success',
-              text: `OAuth 2.0 autenticado com sucesso (User ID: ${data.user_id})`,
-            });
-          } else {
-            setFeedback({
-              type: 'error',
-              text: data.message || 'Falha ao trocar código OAuth pelo access_token.',
-            });
-          }
+      try {
+        if (authResult === 'success') {
+          showToast(
+            'success',
+            `Conta Mercado Livre conectada com sucesso${
+              returnedUserId ? ` (Seller ID: ${returnedUserId})` : ''
+            }! Sincronizando anúncios...`
+          );
           window.history.replaceState({}, document.title, '/');
-        } catch (err) {
-          setFeedback({ type: 'error', text: err.message });
+        } else if (authResult === 'error' || oauthError) {
+          const friendlyError =
+            authMessage ||
+            params.get('error_description') ||
+            'Não foi possível concluir a autenticação com o Mercado Livre. Por favor, clique em "Conectar OAuth 2.0" para tentar novamente.';
+          showToast('error', friendlyError);
+          window.history.replaceState({}, document.title, '/');
+        } else if (code) {
+          try {
+            const { response, data } = await apiFetch(
+              `/api/auth/callback?code=${encodeURIComponent(code)}`
+            );
+            if (response.ok) {
+              showToast(
+                'success',
+                `OAuth 2.0 autenticado com sucesso (Seller ID: ${data.user_id || 'Ativo'})!`
+              );
+            } else {
+              showToast(
+                'error',
+                data.message ||
+                  'A API do Mercado Livre não entregou o token de acesso. Tente conectar novamente.'
+              );
+            }
+          } catch (callbackErr) {
+            showToast(
+              'error',
+              callbackErr.message ||
+                'Falha ao comunicar com a API do Mercado Livre durante o callback OAuth 2.0.'
+            );
+          } finally {
+            window.history.replaceState({}, document.title, '/');
+          }
         }
+
+        await Promise.all([
+          fetchAuthStatus(),
+          fetchItems(authResult === 'success'),
+          fetchMercadoAdsData(),
+        ]);
+      } catch (initErr) {
+        showToast(
+          'error',
+          initErr.message || 'Erro ao inicializar o painel. Modo de segurança ativado.'
+        );
       }
-      await Promise.all([
-        fetchAuthStatus(),
-        fetchItems(authResult === 'success'),
-        fetchMercadoAdsData(),
-      ]);
     }
 
     init();
-  }, []);
+  }, [apiFetch, showToast]);
 
   async function fetchAuthStatus() {
     try {
-      const res = await fetch('/api/auth/status');
-      if (res.ok) {
-        const data = await res.json();
+      const { response, data } = await apiFetch('/api/auth/status');
+      if (response.ok && data) {
         setAuthStatus(data);
       }
     } catch {
@@ -179,15 +431,17 @@ export default function App() {
   async function fetchItems(forceRefresh = false) {
     setLoading(true);
     try {
-      const res = await fetch(`/api/items${forceRefresh ? '?refresh=true' : ''}`);
-      const data = await res.json();
-      if (!res.ok) {
+      const { response, data, redirectedToLogin } = await apiFetch(
+        `/api/items${forceRefresh ? '?refresh=true' : ''}`
+      );
+      if (redirectedToLogin) return;
+      if (!response.ok) {
         throw new Error(data.message || 'Erro ao carregar anúncios');
       }
       setItems(data.items || []);
       setSource(data.source || 'live');
     } catch (err) {
-      setFeedback({ type: 'error', text: err.message });
+      showToast('error', err.message);
     } finally {
       setLoading(false);
     }
@@ -196,19 +450,20 @@ export default function App() {
   async function fetchMercadoAdsData() {
     setAdsLoading(true);
     try {
-      const [campRes, metricsRes] = await Promise.all([
-        fetch('/api/ads/campaigns'),
-        fetch('/api/ads/metrics'),
+      const [campResult, metricsResult] = await Promise.all([
+        apiFetch('/api/ads/campaigns'),
+        apiFetch('/api/ads/metrics'),
       ]);
 
-      const campData = await campRes.json();
-      const metricsData = await metricsRes.json();
+      if (campResult.redirectedToLogin || metricsResult.redirectedToLogin) return;
 
-      if (!campRes.ok) {
-        throw new Error(campData.message || 'Erro ao carregar campanhas do Mercado Ads.');
+      if (!campResult.response.ok) {
+        throw new Error(
+          campResult.data.message || 'Erro ao carregar campanhas do Mercado Ads.'
+        );
       }
 
-      const loadedCampaigns = campData.campaigns || [];
+      const loadedCampaigns = campResult.data.campaigns || [];
       setCampaigns(loadedCampaigns);
 
       const drafts = {};
@@ -217,96 +472,125 @@ export default function App() {
       }
       setBudgetDrafts(drafts);
 
-      if (metricsRes.ok && metricsData) {
-        setAdsMetrics(metricsData);
+      if (metricsResult.response.ok && metricsResult.data) {
+        setAdsMetrics(metricsResult.data);
       }
     } catch (err) {
-      setFeedback({ type: 'error', text: err.message });
+      showToast('error', err.message);
     } finally {
       setAdsLoading(false);
     }
   }
 
+  // ==========================================================================
+  // Pilar 3: Estabilidade da Aba Mercado Ads (Loading + Toast + Status HTTP 200)
+  // ==========================================================================
   async function handleToggleCampaignStatus(campaign) {
+    if (campaignLoadingMap[campaign.id]) return;
     const nextStatus = campaign.status === 'active' ? 'paused' : 'active';
-    setUpdatingCampaignId(campaign.id);
-    setFeedback(null);
+
+    setCampaignLoadingMap((prev) => ({ ...prev, [campaign.id]: 'status' }));
 
     try {
-      const res = await fetch(`/api/ads/campaigns/${encodeURIComponent(campaign.id)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
-      });
+      const { response, data, redirectedToLogin } = await apiFetch(
+        `/api/ads/campaigns/${encodeURIComponent(campaign.id)}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus }),
+        }
+      );
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Falha ao alterar status da campanha.');
+      if (redirectedToLogin) return;
+
+      // Atualiza a linha da tabela APENAS se a API retornar status 200
+      if (response.status !== 200 || !response.ok) {
+        throw new Error(
+          data.message || `Falha ao alterar status da campanha (HTTP ${response.status}).`
+        );
       }
 
       setCampaigns((prev) =>
         prev.map((c) => (c.id === campaign.id ? { ...c, status: nextStatus } : c))
       );
 
-      setFeedback({
-        type: 'success',
-        text: `Campanha ${campaign.id} ${
+      showToast(
+        'success',
+        `Sucesso: Campanha ${campaign.id} ${
           nextStatus === 'active' ? 'ATIVADA' : 'PAUSADA'
-        } com sucesso!`,
-      });
+        } no Mercado Ads!`
+      );
     } catch (err) {
-      setFeedback({ type: 'error', text: err.message });
+      showToast('error', `Erro ao atualizar campanha ${campaign.id}: ${err.message}`);
     } finally {
-      setUpdatingCampaignId(null);
+      setCampaignLoadingMap((prev) => {
+        const next = { ...prev };
+        delete next[campaign.id];
+        return next;
+      });
     }
   }
 
   async function handleSaveCampaignBudget(campaignId) {
+    if (campaignLoadingMap[campaignId]) return;
     const rawValue = budgetDrafts[campaignId];
     const parsedBudget = Number(rawValue);
 
     if (Number.isNaN(parsedBudget) || parsedBudget <= 0) {
-      setFeedback({
-        type: 'error',
-        text: 'Informe um Orçamento Diário válido maior que R$ 0,00.',
-      });
+      showToast('error', 'Informe um Orçamento Diário válido maior que R$ 0,00.');
       return;
     }
 
-    setUpdatingCampaignId(campaignId);
-    setFeedback(null);
+    setCampaignLoadingMap((prev) => ({ ...prev, [campaignId]: 'budget' }));
 
     try {
-      const res = await fetch(`/api/ads/campaigns/${encodeURIComponent(campaignId)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ budget: parsedBudget }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Falha ao salvar orçamento diário.');
-      }
-
-      setCampaigns((prev) =>
-        prev.map((c) => (c.id === campaignId ? { ...c, budget: parsedBudget } : c))
+      const { response, data, redirectedToLogin } = await apiFetch(
+        `/api/ads/campaigns/${encodeURIComponent(campaignId)}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ budget: parsedBudget }),
+        }
       );
 
-      setFeedback({
-        type: 'success',
-        text: `Orçamento diário da campanha ${campaignId} atualizado para ${brlFormatter.format(
-          parsedBudget
-        )}!`,
-      });
+      if (redirectedToLogin) return;
+
+      // Atualiza a linha da tabela APENAS se a API retornar status 200
+      if (response.status !== 200 || !response.ok) {
+        throw new Error(
+          data.message || `Falha ao salvar orçamento diário (HTTP ${response.status}).`
+        );
+      }
+
+      const confirmedBudget = Number(data.campaign?.budget ?? parsedBudget);
+
+      setCampaigns((prev) =>
+        prev.map((c) => (c.id === campaignId ? { ...c, budget: confirmedBudget } : c))
+      );
+      setBudgetDrafts((prev) => ({
+        ...prev,
+        [campaignId]: String(confirmedBudget),
+      }));
+
+      showToast(
+        'success',
+        `Sucesso: Orçamento diário da campanha ${campaignId} atualizado para ${brlFormatter.format(
+          confirmedBudget
+        )}!`
+      );
     } catch (err) {
-      setFeedback({ type: 'error', text: err.message });
+      showToast('error', `Erro ao salvar orçamento de ${campaignId}: ${err.message}`);
     } finally {
-      setUpdatingCampaignId(null);
+      setCampaignLoadingMap((prev) => {
+        const next = { ...prev };
+        delete next[campaignId];
+        return next;
+      });
     }
   }
 
   /**
-   * Abre o Modal de Edição (Slide-Over).
+   * Pilar 4: Abre o Modal de Edição (Slide-Over).
    * Quando acionado pelo fluxo Human-in-the-Loop da IA (aiProposal), pré-preenche
    * o novo Título, Preço e Estoque sugeridos pela IA sem disparar o PUT até o clique em Salvar!
    */
@@ -328,6 +612,9 @@ export default function App() {
     setEditStock(String(nextStock));
     setIsAiSuggested(Boolean(aiProposal));
 
+    // Minimiza o chat flutuante automaticamente para não sobrepor o Modal de Edição
+    setIsFloatingChatOpen(false);
+
     if (dialogRef.current && !dialogRef.current.open) {
       dialogRef.current.showModal();
     }
@@ -341,6 +628,9 @@ export default function App() {
     setIsAiSuggested(false);
   }
 
+  // ==========================================================================
+  // Pilar 4: Trava de Segurança da IA (Human-in-the-Loop) no Chat
+  // ==========================================================================
   async function handleSendChatMessage(event, presetText = null) {
     if (event) event.preventDefault();
     const textToSend = presetText ?? chatInput;
@@ -352,7 +642,7 @@ export default function App() {
     setChatLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
+      const { response, data, redirectedToLogin } = await apiFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -360,8 +650,10 @@ export default function App() {
           previous_interaction_id: previousInteractionId,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) {
+
+      if (redirectedToLogin) return;
+
+      if (!response.ok) {
         throw new Error(data.message || 'Erro ao consultar Copiloto B2B.');
       }
 
@@ -378,8 +670,9 @@ export default function App() {
         },
       ]);
 
-      // HUMAN-IN-THE-LOOP: Se a IA gerou uma proposta de atualização, abre o Modal de Edição
-      // preenchido com Título, Preço e Estoque sugeridos, aguardando o clique físico em "Salvar"!
+      // VERIFICAÇÃO ABSOLUTA HUMAN-IN-THE-LOOP:
+      // A IA NÃO realiza disparo direto (PUT) para o Mercado Livre.
+      // Interceptamos o JSON (data.pending_approval) e abrimos o Modal de Edição com os campos pré-preenchidos!
       if (data.pending_approval) {
         const targetId = data.pending_approval.item_id;
         const matchedItem =
@@ -402,69 +695,60 @@ export default function App() {
         ...prev,
         { role: 'assistant', text: `Erro: ${err.message}`, tools: [] },
       ]);
+      showToast('error', err.message);
     } finally {
       setChatLoading(false);
     }
   }
 
+  // Pilar 2: Reatividade em tempo real no Modal de Edição sem corromper o item salvo antes do clique em Salvar
   function handlePriceChange(val) {
     setEditPrice(val);
-    if (selectedItem && val !== '' && !Number.isNaN(Number(val))) {
-      const numericPrice = Number(val);
-      setItems((prev) =>
-        prev.map((it) => (it.id === selectedItem.id ? { ...it, price: numericPrice } : it))
-      );
-    }
   }
 
   function handleCostChange(val) {
     setEditCost(val);
-    if (selectedItem && val !== '' && !Number.isNaN(Number(val))) {
-      const numericCost = Number(val);
-      setItems((prev) =>
-        prev.map((it) =>
-          it.id === selectedItem.id ? { ...it, product_cost: numericCost } : it
-        )
-      );
-    }
   }
 
-  // O envio real via HTTP PUT para a API do Mercado Livre SÓ acontece quando o usuário clica em "Salvar" no modal!
+  // Pilar 4: O envio real via HTTP PUT para a API do Mercado Livre SÓ acontece quando o usuário clica fisicamente em "Salvar" no modal!
   async function handleSaveItem(event) {
     event.preventDefault();
-    if (!selectedItem) return;
+    if (!selectedItem || saving) return;
 
     setSaving(true);
-    setFeedback(null);
 
     try {
-      const res = await fetch(`/api/items/${encodeURIComponent(selectedItem.id)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: editTitle.trim(),
-          price: Number(editPrice),
-          product_cost: Number(editCost),
-          available_quantity: Number(editStock),
-        }),
-      });
+      const { response, data, redirectedToLogin } = await apiFetch(
+        `/api/items/${encodeURIComponent(selectedItem.id)}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: editTitle.trim(),
+            price: Number(editPrice),
+            product_cost: Number(editCost),
+            available_quantity: Number(editStock),
+          }),
+        }
+      );
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Falha ao atualizar anúncio.');
+      if (redirectedToLogin) return;
+
+      if (response.status !== 200 || !response.ok) {
+        throw new Error(data.message || 'Falha ao atualizar anúncio no Mercado Livre.');
       }
 
       setItems((prev) =>
         prev.map((it) => (it.id === selectedItem.id ? { ...it, ...data.item } : it))
       );
 
-      setFeedback({
-        type: 'success',
-        text: `Anúncio ${selectedItem.id} aprovado e enviado ao Mercado Livre com sucesso!`,
-      });
+      showToast(
+        'success',
+        `Anúncio ${selectedItem.id} salvo e sincronizado com o Mercado Livre!`
+      );
       closeEditSlideOver();
     } catch (err) {
-      setFeedback({ type: 'error', text: err.message });
+      showToast('error', err.message);
     } finally {
       setSaving(false);
     }
@@ -497,12 +781,20 @@ export default function App() {
       .reduce((acc, c) => acc + (Number(c.budget) || 0), 0);
   }, [campaigns]);
 
+  // Pilar 2: Cálculo instantâneo em tempo real a cada dígito no Modal de Edição
   const liveModalSim = useMemo(() => {
     return calculateMeliSimulator(editPrice, editCost);
   }, [editPrice, editCost]);
 
   return (
     <div className="app-shell">
+      {/* Pilar 3: Pilha de Toasts / Snackbars no Topo Direito */}
+      <div className="toast-stack" aria-live="polite">
+        {toasts.map((t) => (
+          <ToastItem key={t.id} toast={t} onDismiss={dismissToast} />
+        ))}
+      </div>
+
       {/* Sidebar com "Meus Anúncios", "Mercado Ads" e "Copiloto B2B (IA)" */}
       <aside className="sidebar">
         <div>
@@ -557,7 +849,7 @@ export default function App() {
           </div>
           <div className="sidebar-footer-row">
             <span>Gatilho B2B / Frete</span>
-            <span className="mono-id">&gt; R$ 79,00</span>
+            <span className="mono-id">&ge; R$ 79,00</span>
           </div>
           <a
             href={authStatus.auth_url}
@@ -582,14 +874,25 @@ export default function App() {
             }}
           >
             <span>{feedback.text}</span>
-            <button
-              type="button"
-              className="btn-secondary"
-              style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
-              onClick={() => setFeedback(null)}
-            >
-              Fechar
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {feedback.type === 'error' && (
+                <a
+                  href={authStatus.auth_url}
+                  className="btn-primary btn-sm"
+                  style={{ textDecoration: 'none' }}
+                >
+                  Tentar Reconectar OAuth 2.0
+                </a>
+              )}
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
+                onClick={() => setFeedback(null)}
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         )}
 
@@ -599,7 +902,7 @@ export default function App() {
               <div>
                 <h1 className="page-title">Meus Anúncios & Simulador de Margem</h1>
                 <p className="page-subtitle">
-                  Gerenciamento de anúncios Pacific Flowers com cálculo automático de comissão ML (16%), gatilho de R$ 79,00 e margem líquida.
+                  Gerenciamento de anúncios Pacific Flowers com cálculo automático em tempo real de comissão ML (16%), gatilho de R$ 79,00 e margem líquida.
                 </p>
               </div>
 
@@ -683,7 +986,14 @@ export default function App() {
                     </tr>
                   ) : (
                     filteredItems.map((item) => {
-                      const sim = calculateMeliSimulator(item.price, item.product_cost ?? 0);
+                      // Se este item estiver aberto no Modal de Edição, reflete a simulação em tempo real também na linha
+                      const isEditingThisRow = selectedItem?.id === item.id;
+                      const effectivePrice = isEditingThisRow ? editPrice : item.price;
+                      const effectiveCost = isEditingThisRow
+                        ? editCost
+                        : item.product_cost ?? 0;
+
+                      const sim = calculateMeliSimulator(effectivePrice, effectiveCost);
                       const marginClass =
                         sim.marginPercent >= 20
                           ? 'positive'
@@ -708,7 +1018,9 @@ export default function App() {
                           <td>
                             <span className="mono-id">{item.id}</span>
                           </td>
-                          <td className="item-title-cell">{item.title}</td>
+                          <td className="item-title-cell">
+                            {isEditingThisRow ? editTitle : item.title}
+                          </td>
                           <td className="price-cell">{brlFormatter.format(sim.price)}</td>
                           <td className="cost-cell">{brlFormatter.format(sim.productCost)}</td>
                           <td className="fee-cell">
@@ -748,7 +1060,9 @@ export default function App() {
                             </span>
                           </td>
                           <td>
-                            <span className="stock-badge">{item.available_quantity} un.</span>
+                            <span className="stock-badge">
+                              {isEditingThisRow ? editStock : item.available_quantity} un.
+                            </span>
                           </td>
                           <td>
                             <span
@@ -773,7 +1087,7 @@ export default function App() {
               <div>
                 <h1 className="page-title">Mercado Ads — Gestão de Tráfego Pago B2B</h1>
                 <p className="page-subtitle">
-                  Controle de campanhas patrocinadas (Product Ads API), orçamento diário e filtro estratégico para Kits de Atacado (&gt; R$ 79,00).
+                  Controle de campanhas patrocinadas (Product Ads API), orçamento diário com estado de carregamento e filtro estratégico para Kits de Atacado (&gt; R$ 79,00).
                 </p>
               </div>
 
@@ -875,8 +1189,8 @@ export default function App() {
                     <th style={{ width: '64px' }}>Foto</th>
                     <th style={{ width: '150px' }}>ID da Campanha</th>
                     <th>Nome do Kit</th>
-                    <th style={{ width: '160px' }}>Status</th>
-                    <th style={{ width: '240px' }}>Orçamento Diário</th>
+                    <th style={{ width: '175px' }}>Status</th>
+                    <th style={{ width: '250px' }}>Orçamento Diário</th>
                     <th style={{ width: '170px' }}>Faturamento Ads</th>
                     <th style={{ width: '130px' }}>ACOS (%)</th>
                   </tr>
@@ -918,7 +1232,8 @@ export default function App() {
                       );
                       const acosValue = Number(metricEntry.acos ?? camp.acos ?? 0);
                       const isActive = camp.status === 'active';
-                      const isBusy = updatingCampaignId === camp.id;
+                      const loadingState = campaignLoadingMap[camp.id];
+                      const isBusy = Boolean(loadingState);
 
                       const acosBadgeClass =
                         acosValue <= 15
@@ -981,27 +1296,48 @@ export default function App() {
                                 type="button"
                                 role="switch"
                                 aria-checked={isActive}
+                                aria-busy={isBusy}
                                 aria-label={`Alternar status da campanha ${camp.name}`}
                                 disabled={isBusy}
-                                className={`toggle-switch ${isActive ? 'active' : ''}`}
+                                className={`toggle-switch ${isActive ? 'active' : ''} ${
+                                  loadingState === 'status' ? 'loading' : ''
+                                }`}
                                 onClick={() => handleToggleCampaignStatus(camp)}
                               />
                               <span
                                 className={`toggle-label ${isActive ? 'active' : ''}`}
                               >
-                                {isActive ? 'Ativa' : 'Pausada'}
+                                {loadingState === 'status' ? (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.35rem',
+                                    }}
+                                  >
+                                    <span className="inline-spinner" />
+                                    <span>Salvando...</span>
+                                  </span>
+                                ) : isActive ? (
+                                  'Ativa'
+                                ) : (
+                                  'Pausada'
+                                )}
                               </span>
                             </div>
                           </td>
 
                           <td>
                             <div className="budget-editor">
-                              <div className="budget-input-group">
+                              <div
+                                className={`budget-input-group ${isBusy ? 'disabled' : ''}`}
+                              >
                                 <span className="budget-prefix">R$</span>
                                 <input
                                   type="number"
                                   step="1"
                                   min="1"
+                                  disabled={isBusy}
                                   aria-label={`Orçamento diário da campanha ${camp.id}`}
                                   className="budget-inline-input"
                                   value={budgetDrafts[camp.id] ?? camp.budget}
@@ -1019,7 +1355,14 @@ export default function App() {
                                 disabled={isBusy}
                                 onClick={() => handleSaveCampaignBudget(camp.id)}
                               >
-                                Salvar
+                                {loadingState === 'budget' ? (
+                                  <>
+                                    <span className="inline-spinner" />
+                                    <span>Salvando...</span>
+                                  </>
+                                ) : (
+                                  'Salvar'
+                                )}
                               </button>
                             </div>
                           </td>
@@ -1164,7 +1507,7 @@ export default function App() {
                           fontFamily: 'JetBrains Mono, monospace',
                         }}
                       >
-                        ⚡ Function Call preparada (aguardando Salvar no Modal):{' '}
+                        ⚡ Function Call interceptada (Human-in-the-Loop — aguardando Salvar):{' '}
                         {msg.tools
                           .map((t) => `${t.name}(${JSON.stringify(t.arguments)})`)
                           .join(', ')}
@@ -1195,7 +1538,129 @@ export default function App() {
         )}
       </main>
 
-      {/* Slide-Over Modal de Edição (<dialog closedby="any">) — Human-in-the-Loop */}
+      {/* ====================================================================
+       * Pilar 4: Widget do Copiloto B2B no Canto Inferior Direito (Retrátil)
+       * Não cobre informações da tabela e fecha automaticamente ao abrir o Modal!
+       * ==================================================================== */}
+      {activeView !== 'copilot_chat' && !selectedItem && (
+        <div className="copilot-floating-container">
+          {isFloatingChatOpen && (
+            <div className="copilot-floating-panel" role="region" aria-label="Copiloto B2B IA">
+              <div className="copilot-floating-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: '#00ff88',
+                    }}
+                  />
+                  <strong style={{ fontSize: '0.82rem' }}>
+                    Copiloto B2B (Human-in-the-Loop)
+                  </strong>
+                </div>
+                <button
+                  type="button"
+                  className="toast-close-btn"
+                  aria-label="Minimizar chat"
+                  onClick={() => setIsFloatingChatOpen(false)}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="copilot-floating-messages">
+                {chatMessages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                      maxWidth: '88%',
+                      backgroundColor:
+                        msg.role === 'user'
+                          ? 'rgba(139, 92, 246, 0.22)'
+                          : 'var(--bg-base)',
+                      border: `1px solid ${
+                        msg.role === 'user'
+                          ? 'rgba(139, 92, 246, 0.5)'
+                          : 'var(--border-subtle)'
+                      }`,
+                      borderRadius: '8px',
+                      padding: '0.6rem 0.75rem',
+                      fontSize: '0.78rem',
+                      lineHeight: 1.45,
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {msg.text}
+                  </div>
+                ))}
+              </div>
+
+              <div className="copilot-floating-quick">
+                <button
+                  type="button"
+                  className="copilot-quick-chip"
+                  onClick={() =>
+                    handleSendChatMessage(
+                      null,
+                      `Atualizar preço do ${items[0]?.id || 'MLB3948102938'} para R$ 94,90`
+                    )
+                  }
+                >
+                  ⚡ Sugerir R$ 94,90
+                </button>
+                <button
+                  type="button"
+                  className="copilot-quick-chip"
+                  onClick={() =>
+                    handleSendChatMessage(
+                      null,
+                      `Otimizar título do ${
+                        items[0]?.id || 'MLB3948102938'
+                      } para "Kit 50 Caixas Presente Floral 25x25cm Pacific Flowers"`
+                    )
+                  }
+                >
+                  ✨ Otimizar Título B2B
+                </button>
+              </div>
+
+              <form onSubmit={handleSendChatMessage} className="copilot-floating-form">
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ flex: 1, padding: '0.45rem 0.65rem', fontSize: '0.78rem' }}
+                  placeholder="Ex: Atualizar preço para R$ 89,90..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  className="btn-primary btn-sm"
+                  disabled={chatLoading}
+                >
+                  {chatLoading ? '...' : 'Enviar'}
+                </button>
+              </form>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="copilot-fab"
+            onClick={() => setIsFloatingChatOpen((prev) => !prev)}
+          >
+            <span>🤖</span>
+            <span>{isFloatingChatOpen ? 'Ocultar Copiloto IA' : 'Copiloto B2B (IA)'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* ====================================================================
+       * Slide-Over Modal de Edição (<dialog closedby="any">) — Pilar 2 & Pilar 4
+       * ==================================================================== */}
       <dialog
         ref={dialogRef}
         closedby="any"
@@ -1296,7 +1761,25 @@ export default function App() {
 
               <div className="form-grid">
                 <div className="form-field">
-                  <label htmlFor="price-input">Preço de Venda (R$)</label>
+                  <label
+                    htmlFor="price-input"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.35rem',
+                    }}
+                  >
+                    <span>Preço de Venda (R$)</span>
+                    <span
+                      className={`strategy-tag ${
+                        liveModalSim.isFreeShippingEligible ? 'neon-green' : 'danger'
+                      }`}
+                      style={{ fontSize: '0.64rem', padding: '0.12rem 0.45rem' }}
+                    >
+                      {liveModalSim.isFreeShippingEligible ? '⚡ ≥ R$ 79' : '⚠️ < R$ 79'}
+                    </span>
+                  </label>
                   <input
                     id="price-input"
                     type="number"
@@ -1306,6 +1789,7 @@ export default function App() {
                     className="form-input"
                     value={editPrice}
                     onChange={(e) => handlePriceChange(e.target.value)}
+                    onInput={(e) => handlePriceChange(e.currentTarget.value)}
                   />
                 </div>
 
@@ -1320,6 +1804,7 @@ export default function App() {
                     className="form-input"
                     value={editCost}
                     onChange={(e) => handleCostChange(e.target.value)}
+                    onInput={(e) => handleCostChange(e.currentTarget.value)}
                   />
                 </div>
               </div>
@@ -1338,10 +1823,17 @@ export default function App() {
                 />
               </div>
 
-              <div className="simulator-card">
+              {/* Pilar 2: Simulador em Tempo Real Reativo a cada tecla digitada */}
+              <div
+                className={`simulator-card ${
+                  liveModalSim.isFreeShippingEligible
+                    ? 'free-shipping-active'
+                    : 'fixed-fee-active'
+                }`}
+              >
                 <div className="simulator-card-header">
                   <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                    Resumo da Simulação (Regra 16% B2B)
+                    Simulador em Tempo Real (Comissão 16% B2B)
                   </span>
                   <span
                     className={`strategy-tag ${
@@ -1354,12 +1846,12 @@ export default function App() {
                 </div>
 
                 <div className="simulator-row">
-                  <span>Preço de Venda</span>
+                  <span>Preço de Venda Digitado</span>
                   <span className="mono-value">{brlFormatter.format(liveModalSim.price)}</span>
                 </div>
 
                 <div className="simulator-row">
-                  <span>(-) Custo de Produção (Pacific Flowers)</span>
+                  <span>(-) Custo do Produto (Pacific Flowers)</span>
                   <span className="mono-value">
                     - {brlFormatter.format(liveModalSim.productCost)}
                   </span>
@@ -1367,8 +1859,11 @@ export default function App() {
 
                 <div className="simulator-row">
                   <span>
-                    (-) Taxas ML (16%{' '}
-                    {liveModalSim.fixedFee > 0 ? '+ R$ 6,00 Taxa Fixa' : 'Sem Taxa Fixa'})
+                    (-) Comissão ML (16% = {brlFormatter.format(liveModalSim.baseCommission16)}
+                    {liveModalSim.fixedFee > 0
+                      ? ' + R$ 6,00 Taxa Fixa'
+                      : ' | Taxa Fixa R$ 0,00'}
+                    )
                   </span>
                   <span className="mono-value">
                     - {brlFormatter.format(liveModalSim.mlCommission)}
@@ -1378,7 +1873,10 @@ export default function App() {
                 <div className="simulator-row">
                   <span>
                     (-) Custo de Frete Vendedor (
-                    {liveModalSim.isFreeShippingEligible ? ' >= R$ 79' : ' < R$ 79'})
+                    {liveModalSim.isFreeShippingEligible
+                      ? 'Preço ≥ R$ 79 → Frete Grátis'
+                      : 'Preço < R$ 79 → Comprador paga'}
+                    )
                   </span>
                   <span className="mono-value">
                     - {brlFormatter.format(liveModalSim.sellerShippingCost)}
@@ -1404,12 +1902,27 @@ export default function App() {
                 Cancelar
               </button>
               <button type="submit" className="btn-primary" disabled={saving}>
-                {saving ? 'Enviando ao ML...' : 'Salvar'}
+                {saving ? (
+                  <>
+                    <span className="inline-spinner" />
+                    <span>Enviando ao ML...</span>
+                  </>
+                ) : (
+                  'Salvar'
+                )}
               </button>
             </div>
           </form>
         )}
       </dialog>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AppErrorBoundary>
+      <DashboardContent />
+    </AppErrorBoundary>
   );
 }
